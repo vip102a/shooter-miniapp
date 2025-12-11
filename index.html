@@ -2,1825 +2,1354 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8" />
-  <title>Survival Shooter — Stars + Gold Mini App</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-
-  <!-- Telegram Mini App SDK -->
+  <title>Survival Shooter – Mini App</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
+    * { box-sizing: border-box; }
     html, body {
       margin: 0;
       padding: 0;
       width: 100%;
       height: 100%;
-    }
-
-    body {
+      overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #202642 0%, #050712 55%, #020308 100%);
-      color: #fff;
-      width: 100%;
+      background: #000;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+    }
+    #root {
+      position: relative;
+      width: 100vw;
       height: 100vh;
+      background: radial-gradient(circle at top, #131b36 0%, #040716 55%, #020308 100%);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    #topBar {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-start;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .chip {
+      pointer-events: auto;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+    }
+    .chip .label {
+      opacity: .8;
+    }
+    .chip-button {
+      cursor: pointer;
+      user-select: none;
+    }
+    #hpBarWrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      pointer-events: auto;
+    }
+    #hpBarOuter {
+      width: 120px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
       overflow: hidden;
     }
-
-    .game-wrapper {
-      position: fixed;
-      inset: 0;              /* top:0; right:0; bottom:0; left:0 */
+    #hpBarInner {
       width: 100%;
-      height: 100vh;         /* chiếm toàn bộ khung mini app */
-      max-width: none;
-      border-radius: 0;
-      overflow: hidden;
-      background:#020308;
+      height: 100%;
+      background: linear-gradient(90deg, #43ff6a, #25d34a);
     }
-
+    #gunChip {
+      margin-left: auto;
+    }
     #gameCanvas {
+      position: absolute;
+      left: 0;
+      top: 0;
       width: 100%;
       height: 100%;
       display: block;
-      background:#020308;
+      touch-action: none;
     }
-
-    /* ===== HUD ===== */
-    .hud {
-      position:absolute;
-      top:8px;
-      left:8px;
-      right:8px;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-      font-size:12px;
-      pointer-events:none;
-      text-shadow:0 1px 3px rgba(0,0,0,0.7);
+    #pauseBtn {
+      position: absolute;
+      left: 10px;
+      top: 32px;
+      z-index: 5;
+      pointer-events: auto;
     }
-    .hud-top {
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:4px;
+    #pauseBtnInner {
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+      cursor: pointer;
+      user-select:none;
     }
-    .hud-left, .hud-center, .hud-right {
-      display:flex;
-      flex-direction:column;
-      gap:4px;
+    #bottomSkill {
+      position: absolute;
+      right: 10px;
+      bottom: 18px;
+      z-index: 5;
+      pointer-events: auto;
     }
-    .hud-row {
-      display:flex;
-      gap:6px;
-      align-items:center;
-      flex-wrap:nowrap;
-    }
-    .hud-right-row {
-      justify-content:flex-end;
-    }
-    @media (max-width: 480px) {
-      .hud-right-row {
-        flex-wrap:wrap;
-        justify-content:flex-end;
-      }
-    }
-    .hud-bottom {
-      display:flex;
-      align-items:flex-start;
-    }
-
-    .pill {
-      background:rgba(0,0,0,0.4);
-      border-radius:999px;
-      padding:4px 8px;
-      display:flex;
-      align-items:center;
-      gap:4px;
-      pointer-events:auto;
-      border:none;
+    #fireBtn {
+      background: rgba(0,0,0,0.75);
+      border-radius: 999px;
+      padding: 6px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      user-select: none;
       color:#fff;
-      font-size:12px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+      font-size: 11px;
     }
-    .pill-label { opacity:0.7; }
-
-    /* HP bar */
-    .hp-bar {
-      width:80px;
-      height:8px;
-      border-radius:999px;
-      background:rgba(255,255,255,0.1);
-      overflow:hidden;
-    }
-    .hp-fill {
-      height:100%;
-      background:linear-gradient(90deg,#1be166,#9bff4f);
-      width:100%;
-    }
-
-    /* Gold pill: 2 dòng */
-    .pill-gold {
-      flex-direction:column;
-      align-items:center;
-      min-width:64px;
-      padding-inline:10px;
-    }
-    .pill-gold .pill-label {
-      font-size:11px;
-    }
-    .pill-gold .pill-value {
-      font-size:13px;
-      font-weight:600;
-    }
-
-    /* Weapon pill gộp */
-    .pill-weapon {
-      flex-direction:column;
-      align-items:flex-start;
-      min-width:90px;
-      padding-inline:10px;
-      cursor:pointer;
-    }
-    .weapon-top {
-      display:flex;
-      align-items:center;
-      gap:4px;
-      font-size:12px;
-    }
-    .weapon-icon {
-      font-size:13px;
-    }
-    .weapon-bottom {
-      font-size:11px;
-      opacity:0.85;
-      margin-top:1px;
+    #fireBtn span.count {
+      font-weight: 600;
     }
 
     .overlay {
-      position:absolute;
-      inset:0;
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(15,18,40,0.94), rgba(2,3,10,0.96));
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+    .overlay.visible {
+      display: flex;
+    }
+    .panel {
+      width: min(420px, 90vw);
+      max-height: 90vh;
+      background: rgba(0,0,0,0.82);
+      border-radius: 18px;
+      padding: 14px;
+      color:#fff;
+      box-shadow:0 12px 30px rgba(0,0,0,0.7);
       display:flex;
       flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      background:linear-gradient(to top,rgba(0,0,0,0.88),rgba(0,0,0,0.65));
-      text-align:center;
-      padding:16px;
-      z-index:5;
+      gap:10px;
     }
-    .overlay h1 {
-      font-size:22px;
-      margin-bottom:8px;
+    .panel h2 {
+      margin: 0 0 4px;
+      font-size: 18px;
     }
-    .overlay p {
-      font-size:14px;
-      opacity:0.9;
-      margin-bottom:10px;
+    .panel p {
+      margin: 0 0 8px;
+      font-size: 13px;
+      opacity: .9;
     }
-    .overlay button {
-      border:none;
-      padding:10px 18px;
-      border-radius:999px;
-      background:#ffb100;
-      color:#201317;
-      font-weight:700;
-      font-size:14px;
-      cursor:pointer;
-      margin-top:6px;
-      box-shadow:0 8px 18px rgba(0,0,0,0.4);
-    }
-    .overlay button.secondary {
-      background:rgba(255,255,255,0.08);
-      color:#fff;
-    }
-    .overlay small {
-      font-size:11px;
-      opacity:0.7;
-      margin-top:8px;
-    }
-
-    .shop-tabs {
+    .panel-row {
       display:flex;
-      gap:8px;
-      margin-bottom:8px;
-      width:100%;
-      max-width:360px;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-bottom:4px;
     }
-    .shop-tab {
-      flex:1;
+    .btn {
       border:none;
       border-radius:999px;
-      padding:6px 8px;
+      padding:6px 10px;
       font-size:12px;
       cursor:pointer;
-      background:rgba(255,255,255,0.08);
-      color:#fff;
-    }
-    .shop-tab.active {
       background:#ffb100;
       color:#201317;
-      font-weight:700;
+      font-weight:600;
+      box-shadow:0 4px 12px rgba(0,0,0,0.5);
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      user-select:none;
     }
-
-    .shop-list {
+    .btn.secondary {
+      background:rgba(255,255,255,0.1);
+      color:#fff;
+      box-shadow:none;
+    }
+    .btn.full {
       width:100%;
-      max-width:360px;
-      max-height:55%;
-      overflow:auto;
-      text-align:left;
-      margin-top:6px;
-      padding-right:2px;
+      justify-content:center;
+    }
+    .shop-section-title {
+      font-size:13px;
+      font-weight:600;
+      margin-top:4px;
+      margin-bottom:4px;
+      opacity:.95;
     }
     .shop-item {
-      background:rgba(0,0,0,0.4);
-      border-radius:12px;
-      padding:8px 10px;
-      margin-bottom:8px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:5px 0;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      font-size:12px;
+    }
+    .shop-item:last-child { border-bottom:none; }
+    .shop-item .meta {
       display:flex;
       flex-direction:column;
-      gap:4px;
+      gap:2px;
     }
-    .shop-item-header {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      font-size:13px;
-    }
-    .shop-item-title { font-weight:600; }
-    .shop-item-desc {
-      font-size:12px;
-      opacity:0.85;
-    }
-    .shop-item-footer {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-top:4px;
-      font-size:12px;
-    }
-    .shop-price {
-      display:flex;
-      align-items:center;
-      gap:4px;
-      opacity:0.9;
-    }
-    .shop-status-text {
+    .shop-item .meta span.desc {
+      opacity:.8;
       font-size:11px;
-      opacity:0.75;
-      margin-top:4px;
     }
 
-    .controls {
+    #toast {
       position:absolute;
-      inset-inline:8px;
-      bottom:10px;
-      display:flex;
-      justify-content:flex-end;
-      align-items:center;
-      pointer-events:none;
-    }
-    .ctrl-btn {
-      width:54px;
-      height:54px;
-      border-radius:50%;
-      border:none;
-      background:rgba(255,255,255,0.06);
+      left:50%;
+      bottom:60px;
+      transform:translateX(-50%);
+      background:rgba(0,0,0,0.85);
       color:#fff;
-      font-size:18px;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      line-height:1.1;
-      box-shadow:0 8px 18px rgba(0,0,0,0.6);
-      backdrop-filter:blur(8px);
-      -webkit-backdrop-filter:blur(8px);
-      cursor:pointer;
-      touch-action:none;
-      pointer-events:auto;
-    }
-    .ctrl-btn span {
       font-size:11px;
-      opacity:0.9;
+      padding:6px 10px;
+      border-radius:999px;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .2s;
+      z-index:30;
+      white-space:nowrap;
     }
-    .ctrl-btn:active { transform:scale(0.96); }
-
-    @media (min-width: 900px) {
-      .controls { display:none; }
+    #toast.visible {
+      opacity:1;
     }
   </style>
 </head>
 <body>
+<div id="root">
+  <canvas id="gameCanvas" width="480" height="800"></canvas>
 
-<div class="game-wrapper">
-  <canvas id="gameCanvas" width="400" height="700"></canvas>
-
-  <!-- HUD -->
-  <div class="hud">
-    <div class="hud-top">
-      <!-- Trái: Stage -->
-      <div class="hud-left">
-        <div class="hud-row">
-          <div class="pill">
-            <span class="pill-label">Stage</span>
-            <span id="hudStage">1</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Giữa: HP -->
-      <div class="hud-center">
-        <div class="hud-row">
-          <div class="pill">
-            <span class="pill-label">HP</span>
-            <div class="hp-bar"><div id="hpFill" class="hp-fill"></div></div>
-            <span id="hudHpText">100</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Phải: Gold + Weapon + Shop -->
-      <div class="hud-right">
-        <div class="hud-row hud-right-row">
-          <!-- Gold 2 dòng -->
-          <div class="pill pill-gold">
-            <span class="pill-label">Gold</span>
-            <span class="pill-value" id="hudGold">0</span>
-          </div>
-
-          <!-- Weapon: icon + name + Lv -->
-          <button class="pill pill-weapon" id="btnWeapon">
-            <div class="weapon-top">
-              <span class="weapon-icon">🔁</span>
-              <span id="hudWeaponName">Pistol</span>
-            </div>
-            <div class="weapon-bottom" id="hudWeaponLevel">Lv.1</div>
-          </button>
-
-          <!-- Shop -->
-          <button class="pill" id="btnOpenShopHud" style="font-size:11px;padding:4px 10px;">
-            🛒 Shop
-          </button>
-        </div>
-      </div>
+  <div id="topBar">
+    <div class="chip" id="stageChip">
+      <span class="label">Stage</span>
+      <span id="stageValue">1</span>
     </div>
-
-    <!-- Dưới: chỉ có Pause, dưới cột Stage -->
-    <div class="hud-bottom">
-      <button class="pill" id="btnPauseHud">⏸ Tạm dừng</button>
+    <div class="chip" id="hpChip">
+      <span class="label">HP</span>
+      <div id="hpBarWrap">
+        <div id="hpBarOuter">
+          <div id="hpBarInner"></div>
+        </div>
+      </div>
+      <span id="hpValue" style="font-weight:600;">100</span>
+    </div>
+    <div class="chip" id="goldChip">
+      <span class="label">Gold</span>
+      <span id="goldValue" style="font-weight:600;">0</span>
+    </div>
+    <div class="chip chip-button" id="gunChip">
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:0;">
+        <span id="weaponName" style="font-size:11px;font-weight:600;">Pistol</span>
+        <span id="weaponLevel" style="font-size:10px;opacity:.85;">Lv.1</span>
+      </div>
+      <span style="font-size:11px;opacity:.8;">🔄</span>
+    </div>
+    <div class="chip chip-button" id="shopChip">
+      <span>🛒 Shop</span>
     </div>
   </div>
 
-  <div id="overlay" class="overlay"></div>
-
-  <!-- Bão lửa -->
-  <div class="controls">
-    <button class="ctrl-btn" id="btnShoot">
-      🔥
-      <span id="firestormCountLabel">x0</span>
-    </button>
+  <div id="pauseBtn">
+    <div id="pauseBtnInner">⏸ Tạm dừng</div>
   </div>
+
+  <div id="bottomSkill">
+    <div id="fireBtn">
+      <span>🔥 Bão lửa</span>
+      <span class="count" id="fireCount">0</span>
+    </div>
+  </div>
+
+  <!-- Overlay: Pause / Menu -->
+  <div class="overlay" id="menuOverlay">
+    <div class="panel">
+      <h2 id="menuTitle">Survival Shooter</h2>
+      <p id="menuDesc">
+        Di chuyển nhân vật khắp màn hình để né đạn, auto-bắn tiêu diệt quái. Dùng Gold để nâng cấp, dùng Stars để mua Gold.
+      </p>
+      <div class="panel-row">
+        <button class="btn full" id="btnResume">▶ Tiếp tục</button>
+      </div>
+      <div class="panel-row">
+        <button class="btn full secondary" id="btnRestart">🔁 Chơi lại từ Stage 1</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay: Shop -->
+  <div class="overlay" id="shopOverlay">
+    <div class="panel">
+      <h2>🛒 Shop</h2>
+      <p>Gold đang có: <b><span id="shopGoldDisplay">0</span></b><br/>
+         1 ⭐ = 10 Gold. Dùng Stars để mua Gold, rồi dùng Gold để nâng cấp trong game.
+      </p>
+
+      <div class="shop-section-title">A. Đổi Stars ➜ Gold</div>
+      <div class="panel-row" style="max-height:110px;overflow:auto;">
+        <!-- các gói stars -->
+        <button class="btn" data-stars="5">5⭐ → 50G</button>
+        <button class="btn" data-stars="10">10⭐ → 100G</button>
+        <button class="btn" data-stars="20">20⭐ → 200G</button>
+        <button class="btn" data-stars="50">50⭐ → 500G</button>
+        <button class="btn" data-stars="100">100⭐ → 1000G</button>
+        <button class="btn" data-stars="200">200⭐ → 2000G</button>
+        <button class="btn" data-stars="500">500⭐ → 5000G</button>
+        <button class="btn" data-stars="1000">1000⭐ → 10000G</button>
+      </div>
+
+      <div class="shop-section-title">B. Shop vật phẩm (Gold)</div>
+      <div id="goldShopItems">
+        <!-- Heal -->
+        <div class="shop-item">
+          <div class="meta">
+            <span>💊 Hồi 50 HP</span>
+            <span class="desc">Mua 1 lần: +50 HP (tối đa không vượt quá HP tối đa).</span>
+          </div>
+          <button class="btn secondary" data-gitem="heal">20G</button>
+        </div>
+        <!-- Armor -->
+        <div class="shop-item">
+          <div class="meta">
+            <span>🛡️ Giáp vĩnh viễn +20 HP</span>
+            <span class="desc">Tăng HP tối đa +20 và hồi ngay +20 HP.</span>
+          </div>
+          <button class="btn secondary" data-gitem="armor">40G</button>
+        </div>
+        <!-- Continue -->
+        <div class="shop-item">
+          <div class="meta">
+            <span>🔁 Chơi tiếp khi thua</span>
+            <span class="desc">Chỉ dùng sau khi thua 1 màn, hồi full HP.</span>
+          </div>
+          <button class="btn secondary" data-gitem="continue">60G</button>
+        </div>
+        <!-- Firestorm -->
+        <div class="shop-item">
+          <div class="meta">
+            <span>🔥 Bão lửa x3</span>
+            <span class="desc">Quét sạch đạn quái + 10% máu toàn bộ quái mỗi lần dùng.</span>
+          </div>
+          <button class="btn secondary" data-gitem="firestorm">40G</button>
+        </div>
+      </div>
+
+      <div class="shop-section-title">C. Vũ khí</div>
+      <div id="weaponShop"></div>
+
+      <div class="panel-row" style="margin-top:8px;">
+        <button class="btn full secondary" id="btnCloseShop">Đóng Shop</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
 </div>
 
 <script>
-  // ===== Telegram init =====
-  const tg = window.Telegram && window.Telegram.WebApp;
-  function inTelegram() {
-    return !!(tg && typeof tg.openInvoice === 'function');
-  }
+  const BACKEND_URL = 'https://backend-yemh.onrender.com';
+  const GOLD_PER_STAR = 10;
+
+  const tg = window.Telegram?.WebApp;
   if (tg) {
-    try { tg.ready(); tg.expand(); } catch (e) {}
+    tg.expand();
+    tg.ready();
   }
 
-  // ===== CONFIG =====
-  const BACKEND     = 'https://backend-yemh.onrender.com';
-  const STORAGE_KEY = 'survival_shooter_progress_v5';
-
-  // Production: dùng Stars thật
-  const DEV_FREE_STARS = false;
-
-  const AUTO_SHOOT = true;
-  const WEAPON_KEYS = ['pistol','rifle','shotgun','sniper'];
-
-  const WEAPON_CONFIG = {
-    pistol: { displayName: 'Pistol',  levels: [] },
-    rifle:  { displayName: 'Rifle',   levels: [] },
-    shotgun:{ displayName: 'Shotgun', levels: [] },
-    sniper: { displayName: 'Sniper',  levels: [] }
-  };
-
-  // ===== WEAPON LEVELS INIT =====
-  (function initWeapons() {
-    // Pistol: 3 level
-    WEAPON_CONFIG.pistol.levels = [
-      { damage: 12, cooldown: 0.35, bulletSpeed: 500, pellets: 1 },
-      { damage: 16, cooldown: 0.32, bulletSpeed: 520, pellets: 1 },
-      { damage: 20, cooldown: 0.30, bulletSpeed: 540, pellets: 1 },
-    ];
-    // Rifle: 3 level
-    WEAPON_CONFIG.rifle.levels = [
-      { damage: 9, cooldown: 0.18, bulletSpeed: 640, pellets: 1 },
-      { damage: 12, cooldown: 0.16, bulletSpeed: 660, pellets: 1 },
-      { damage: 15, cooldown: 0.14, bulletSpeed: 680, pellets: 1 },
-    ];
-    // Shotgun: 3 level
-    WEAPON_CONFIG.shotgun.levels = [
-      { damage: 7, cooldown: 0.5,  bulletSpeed: 460, pellets: 3 },
-      { damage: 9, cooldown: 0.46, bulletSpeed: 470, pellets: 3 },
-      { damage: 11,cooldown: 0.42, bulletSpeed: 480, pellets: 4 },
-    ];
-    // Sniper: 20 level, lẻ tăng dame, chẵn tăng tốc bắn
-    const levels = [];
-    let dmg = 40;
-    let cd  = 1.1;
-    let spd = 900;
-    for (let lv = 1; lv <= 20; lv++) {
-      levels.push({ damage: dmg, cooldown: cd, bulletSpeed: spd, pellets: 1 });
-      if (lv % 2 === 1) {
-        dmg += 6;
-      } else {
-        cd  = Math.max(0.25, cd * 0.92);
-        spd += 10;
-      }
-    }
-    WEAPON_CONFIG.sniper.levels = levels;
-  })();
-
-  function getMaxWeaponLevel(key) {
-    const cfg = WEAPON_CONFIG[key];
-    if (!cfg || !cfg.levels || !cfg.levels.length) return 1;
-    return cfg.levels.length;
-  }
-
-  // ===== ITEM SHOP (Gold) =====
-  const ITEM_PRODUCTS = {
-    heal_full: {
-      id: 'heal_full',
-      type: 'heal',
-      title: 'Hồi 50 HP',
-      description: 'Hồi 50 HP trong trận hiện tại (không vượt quá HP tối đa).',
-      priceGold: 20   // 2⭐ *10
-    },
-    armor_plus: {
-      id: 'armor_plus',
-      type: 'armor',
-      title: 'Giáp vĩnh viễn +20 HP',
-      description: 'Tăng HP tối đa (áp dụng ngay) cho tất cả trận sau này.',
-      priceGold: 120  // 12⭐
-    },
-    revive_continue: {
-      id: 'revive_continue',
-      type: 'revive',
-      title: 'Chơi tiếp màn vừa thua',
-      description: 'Hồi sinh trong ải vừa thua (mỗi ải tối đa 1 lần).',
-      priceGold: 100  // 10⭐
-    },
-    firestorm: {
-      id: 'firestorm',
-      type: 'firestorm',
-      title: 'Bão lửa',
-      description: 'Quét sạch đạn địch và đốt 10% máu mỗi quái. Có thể mua nhiều lần.',
-      priceGold: 40   // 4⭐ cho mỗi lần
-    },
-    unlock_rifle: {
-      id: 'unlock_rifle',
-      type: 'unlockWeapon',
-      weaponKey: 'rifle',
-      title: 'Mở khóa Rifle',
-      description: 'Súng bắn nhanh, DPS cao hơn Pistol.',
-      priceGold: 300
-    },
-    unlock_shotgun: {
-      id: 'unlock_shotgun',
-      type: 'unlockWeapon',
-      weaponKey: 'shotgun',
-      title: 'Mở khóa Shotgun',
-      description: 'Bắn loe nhiều viên, dọn quái gần cực tốt.',
-      priceGold: 400
-    },
-    unlock_sniper: {
-      id: 'unlock_sniper',
-      type: 'unlockWeapon',
-      weaponKey: 'sniper',
-      title: 'Mở khóa Sniper',
-      description: 'Sát thương cực cao, đạn tự dò mục tiêu.',
-      priceGold: 500
-    },
-    upgrade_pistol: {
-      id: 'upgrade_pistol',
-      type: 'upgradeWeapon',
-      weaponKey: 'pistol',
-      baseGold: 150
-    },
-    upgrade_rifle: {
-      id: 'upgrade_rifle',
-      type: 'upgradeWeapon',
-      weaponKey: 'rifle',
-      baseGold: 180
-    },
-    upgrade_shotgun: {
-      id: 'upgrade_shotgun',
-      type: 'upgradeWeapon',
-      weaponKey: 'shotgun',
-      baseGold: 200
-    },
-    upgrade_sniper: {
-      id: 'upgrade_sniper',
-      type: 'upgradeWeapon',
-      weaponKey: 'sniper',
-      baseGold: 250
-    }
-  };
-
-  // ===== STARS → GOLD PACKS =====
-  const STARS_GOLD_PACKS = [
-    { id: 'pack_5',   stars: 5,   gold:  50 },
-    { id: 'pack_10',  stars:10,   gold: 100 },
-    { id: 'pack_20',  stars:20,   gold: 200 },
-    { id: 'pack_50',  stars:50,   gold: 500 },
-    { id: 'pack_100', stars:100,  gold:1000 },
-    { id: 'pack_200', stars:200,  gold:2000 },
-    { id: 'pack_500', stars:500,  gold:5000 },
-    { id: 'pack_1000',stars:1000, gold:10000 },
-  ];
-
-  // ===== PROGRESS =====
-  function loadProgress() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
-      return JSON.parse(raw);
-    } catch (e) {
-      return null;
-    }
-  }
-  function saveProgress() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch (e) {}
-  }
-
-  const defaultProgress = {
-    unlockedWeapons: { pistol: true, rifle: false, shotgun: false, sniper: false },
-    weaponLevels:    { pistol: 1,    rifle: 0,     shotgun: 0,     sniper: 0     },
-    armorLevel: 0,
-    bestStage: 0,
-    firestormCharges: 0,
-    gold: 0
-  };
-  let progress = loadProgress() || defaultProgress;
-
-  function ensureProgressShape() {
-    if (!progress.unlockedWeapons) {
-      progress.unlockedWeapons = { pistol:true, rifle:false, shotgun:false, sniper:false };
-    }
-    if (!progress.weaponLevels) {
-      progress.weaponLevels = { pistol:1, rifle:0, shotgun:0, sniper:0 };
-    }
-    if (progress.armorLevel == null) progress.armorLevel = 0;
-    if (progress.bestStage == null) progress.bestStage = 0;
-    if (progress.firestormCharges == null) progress.firestormCharges = 0;
-    if (progress.gold == null) progress.gold = 0;
-
-    for (const key of WEAPON_KEYS) {
-      const maxLv = getMaxWeaponLevel(key);
-      let lv = progress.weaponLevels[key] || (progress.unlockedWeapons[key] ? 1 : 0);
-      if (lv > maxLv) lv = maxLv;
-      progress.weaponLevels[key] = lv;
-    }
-  }
-  ensureProgressShape();
-  saveProgress();
-
-  // ===== GAME STATE =====
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-
-  const hudStage      = document.getElementById('hudStage');
-  const hpFill        = document.getElementById('hpFill');
-  const hudHpText     = document.getElementById('hudHpText');
-  const hudWeaponName = document.getElementById('hudWeaponName');
-  const hudWeaponLevel= document.getElementById('hudWeaponLevel');
-  const hudGold       = document.getElementById('hudGold');
-  const btnShopHud    = document.getElementById('btnOpenShopHud');
-  const btnWeapon     = document.getElementById('btnWeapon');
-  const btnPauseHud   = document.getElementById('btnPauseHud');
-  const overlay       = document.getElementById('overlay');
-  const btnShoot      = document.getElementById('btnShoot');
-  const firestormLabel= document.getElementById('firestormCountLabel');
-
-  const keys = { left: false, right: false, shoot: false };
-
-  const BASE_ENEMY_HP    = 30;
-  const BASE_ENEMY_DMG   = 8;
-  const BASE_ENEMY_COUNT = 10;
-  const ENEMY_PER_STAGE  = 5;
-
-  let gameState = 'menu'; // 'menu','playing','paused','stageClear','gameOver'
-  let stage = 1;
-  let reviveUsedThisStage = false;
-  let shopReturnMode = 'menu';
-  let shopActiveTab  = 'items'; // 'stars' | 'items'
-  let firestormFlashTimer = 0;
-
-  const player = {
-    x: canvas.width / 2,
-    y: canvas.height - 90,
-    width: 60,
-    height: 80,
-    speed: 260,
-    hp: 100,
-    maxHp: 100,
-    weaponKey: 'pistol',
-    shotTimer: 0,
-    moveDir: 0,
-    shootFlashTimer: 0
-  };
-
-  let enemies = [];
-  let playerBullets = [];
-  let enemyBullets  = [];
-
-  // ===== SPRITES =====
-  const spritePlayer = new Image();
-  spritePlayer.src = 'player.png';
-  const spriteEnemy = new Image();
-  spriteEnemy.src  = 'enemy_girl.png';
-  const spriteBoss  = new Image();
-  spriteBoss.src   = 'boss_girl.png';
-
-  function isSpriteReady(img) {
-    return img && img.complete && img.naturalWidth > 0;
-  }
-
-  // ===== AUDIO =====
+  // ================== AUDIO ENGINE (giống soundtest, shot trầm hơn) ==================
   let audioCtx = null;
-  let audioEnabled = true;
-  function ensureAudio() {
-    if (!audioEnabled) return;
-    if (!audioCtx) {
-      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-      catch (e) { audioEnabled = false; }
+  let masterGain = null;
+  let audioEnabled = false;
+
+  function initAudio() {
+    if (audioCtx) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      audioEnabled = true;
+      return;
     }
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.7;
+      masterGain.connect(audioCtx.destination);
+      audioEnabled = true;
+    } catch (e) {
+      console.error('Audio init error:', e);
+      audioEnabled = false;
+    }
   }
-  function playTone(freq, duration, type, gainValue) {
-    if (!audioEnabled || !audioCtx) return;
-    const osc  = audioCtx.createOscillator();
+  function ensureAudio() {
+    if (!audioEnabled) initAudio();
+    return audioEnabled;
+  }
+  function playNoise(duration, opts = {}) {
+    if (!ensureAudio() || !audioCtx || !masterGain) return;
+    const bufferSize = audioCtx.sampleRate * duration;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+
     const gain = audioCtx.createGain();
-    osc.type = type || 'square';
-    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    osc.connect(gain); gain.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(gainValue || 0.2, now + 0.01);
+    const vol = opts.volume != null ? opts.volume : 0.4;
+
+    src.connect(gain);
+    gain.connect(masterGain);
+
+    gain.gain.setValueAtTime(vol, now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    src.start(now);
+    src.stop(now + duration + 0.05);
+  }
+  function playTone(freq, duration, opts = {}) {
+    if (!ensureAudio() || !audioCtx || !masterGain) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    const now = audioCtx.currentTime;
+    const type = opts.type || 'sine';
+    const vol  = opts.volume != null ? opts.volume : 0.4;
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
     osc.start(now);
     osc.stop(now + duration + 0.05);
   }
-  function playShotSound()      { ensureAudio(); if (!audioCtx) return; playTone(900, 0.08, 'square', 0.22); }
-  function playHitSound()       { ensureAudio(); if (!audioCtx) return; playTone(500, 0.05, 'sawtooth', 0.18); }
-  function playClickSound()     { ensureAudio(); if (!audioCtx) return; playTone(700, 0.04, 'triangle', 0.12); }
-  function playExplosionSound() {
-    ensureAudio(); if (!audioCtx) return;
-    const bufferSize = audioCtx.sampleRate * 0.25;
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data   = buffer.getChannelData(0);
-    for (let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1)*(1-i/bufferSize);
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = buffer;
+  function playSweep(startFreq, endFreq, duration, opts = {}) {
+    if (!ensureAudio() || !audioCtx || !masterGain) return;
+    const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    noise.connect(gain); gain.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-    gain.gain.setValueAtTime(0.35, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now+0.25);
-    noise.start(now); noise.stop(now+0.26);
+
+    const type = opts.type || 'sawtooth';
+    const vol  = opts.volume != null ? opts.volume : 0.35;
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.linearRampToValueAtTime(endFreq, now + duration);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.start(now);
+    osc.stop(now + duration + 0.05);
   }
 
-  // ===== UTIL HUD =====
-  function getWeaponStats(key) {
-    const cfg = WEAPON_CONFIG[key] || WEAPON_CONFIG.pistol;
-    const maxLv = getMaxWeaponLevel(key);
-    let level = progress.weaponLevels[key] || 1;
-    if (level < 1) level = 1;
-    if (level > maxLv) level = maxLv;
-    const idx = level - 1;
-    return cfg.levels[idx];
+  function sfxPlayerHit() {
+    playSweep(220, 120, 0.18, { type: 'triangle', volume: 0.45 });
+    setTimeout(() => {
+      playTone(90, 0.08, { type: 'sine', volume: 0.35 });
+    }, 130);
   }
-  function updateHudWeapon() {
-    const cfg = WEAPON_CONFIG[player.weaponKey];
-    const lv  = progress.weaponLevels[player.weaponKey] || 1;
-    hudWeaponName.textContent  = cfg.displayName;
-    hudWeaponLevel.textContent = 'Lv.' + lv;
-  }
-  function updateFirestormHud() {
-    const c = progress.firestormCharges || 0;
-    firestormLabel.textContent = 'x' + c;
-    btnShoot.style.opacity = c > 0 ? '1' : '0.5';
-  }
-  function updateGoldHud() {
-    hudGold.textContent = progress.gold.toString();
-  }
-  function resetPlayer() {
-    player.x = canvas.width / 2;
-    player.y = canvas.height - 90;
-    player.weaponKey = 'pistol';
-    player.shotTimer = 0;
-    player.moveDir = 0;
-    player.shootFlashTimer = 0;
-    player.maxHp = 100 + progress.armorLevel * 20;
-    player.hp = player.maxHp;
-    updateHudWeapon();
-  }
-
-  function createStage(n) {
-    enemies = [];
-    playerBullets = [];
-    enemyBullets  = [];
-
-    const count = (n === 1) ? BASE_ENEMY_COUNT : BASE_ENEMY_COUNT + (n-1)*ENEMY_PER_STAGE;
-    const hpMul  = Math.pow(1.2, n-1);
-    const dmgMul = Math.pow(1.1, n-1);
-
-    for (let i=0;i<count;i++) {
-      enemies.push({
-        x: 30 + Math.random()*(canvas.width-60),
-        y: 60 + Math.random()*180,
-        width: 60,
-        height: 80,
-        hp: BASE_ENEMY_HP*hpMul,
-        maxHp: BASE_ENEMY_HP*hpMul,
-        speedX: (Math.random()<0.5?-1:1)*(20+Math.random()*30),
-        damage: BASE_ENEMY_DMG*dmgMul,
-        shootTimer: 1 + Math.random()*2,
-        type: 'normal',
-        bobPhase: Math.random()*Math.PI*2,
-        hitTimer: 0
-      });
-    }
-    if (n % 2 === 0) {
-      enemies.push({
-        x: canvas.width/2,
-        y: 80,
-        width: 76,
-        height: 96,
-        hp: BASE_ENEMY_HP*hpMul*6,
-        maxHp: BASE_ENEMY_HP*hpMul*6,
-        speedX: 35,
-        damage: BASE_ENEMY_DMG*dmgMul*1.5,
-        shootTimer: 1.2,
-        type: 'miniBoss',
-        bobPhase: Math.random()*Math.PI*2,
-        hitTimer: 0
-      });
-    }
-    if (n % 10 === 0) {
-      enemies.push({
-        x: canvas.width/2,
-        y: 95,
-        width: 90,
-        height: 112,
-        hp: BASE_ENEMY_HP*hpMul*14,
-        maxHp: BASE_ENEMY_HP*hpMul*14,
-        speedX: 30,
-        damage: BASE_ENEMY_DMG*dmgMul*2,
-        shootTimer: 0.9,
-        type: 'boss',
-        bobPhase: Math.random()*Math.PI*2,
-        hitTimer: 0
-      });
-    }
-    hudStage.textContent = n;
-    reviveUsedThisStage = false;
-  }
-
-  function startGame() {
-    playClickSound();
-    stage = 1;
-    resetPlayer();
-    createStage(stage);
-    gameState = 'playing';
-    hideOverlay();
-  }
-  function nextStage() {
-    playClickSound();
-    stage += 1;
-    if (stage > progress.bestStage) { progress.bestStage = stage; saveProgress(); }
-    player.hp = Math.min(player.hp + 30, player.maxHp);
-    createStage(stage);
-    gameState = 'playing';
-    hideOverlay();
-  }
-
-  // ===== OVERLAY =====
-  function showMainMenu() {
-    gameState = 'menu';
-    shopReturnMode = 'menu';
-    overlay.innerHTML = `
-      <h1>🎮 Survival Shooter</h1>
-      <p>Game bắn súng sinh tồn. Dùng Telegram Stars để mua Gold, sau đó dùng Gold mua vật phẩm và nâng cấp vũ khí.</p>
-      <p style="font-size:13px;opacity:0.9">
-        <b>PC:</b> A/D di chuyển, auto-bắn. Nhấn <b>Q</b> hoặc nút súng để đổi vũ khí.<br/>
-        <b>Điện thoại:</b> Vuốt trên màn hình để di chuyển, ngón thứ 2 bấm súng / Bão lửa.
-      </p>
-      <button id="btnStartGame">Bắt đầu ải 1</button>
-      <button id="btnOpenShopFromMenu" class="secondary">🛒 Mở Shop</button>
-      <small>Tip: 1⭐ ≈ 10 Gold. Bạn có thể mua Stars bằng Ton / tiền trong ví Telegram.</small>
-    `;
-    overlay.style.display = 'flex';
-    document.getElementById('btnStartGame').onclick = () => { ensureAudio(); startGame(); };
-    document.getElementById('btnOpenShopFromMenu').onclick = () => { ensureAudio(); showShop('items', null, 'menu'); };
-  }
-  function showStageClear() {
-    gameState = 'stageClear';
-    shopReturnMode = 'stageClear';
-    overlay.innerHTML = `
-      <h1>✅ Hoàn thành ải ${stage}</h1>
-      <p>Bạn đã sống sót qua ải <b>${stage}</b>! Quái ải sau sẽ đông & trâu hơn.</p>
-      <button id="btnNextStage">Tiếp tục ải ${stage+1}</button>
-      <button id="btnOpenShopFromStage" class="secondary">🛒 Mở Shop</button>
-    `;
-    overlay.style.display = 'flex';
-    document.getElementById('btnNextStage').onclick = () => { ensureAudio(); nextStage(); };
-    document.getElementById('btnOpenShopFromStage').onclick = () => { ensureAudio(); showShop('items', null, 'stageClear'); };
-  }
-  function showGameOver() {
-    gameState = 'gameOver';
-    shopReturnMode = 'gameOver';
-    overlay.innerHTML = `
-      <h1>💀 Game Over</h1>
-      <p>Bạn dừng lại ở ải <b>${stage}</b>. Có thể dùng <b>Revive</b> hoặc nâng cấp súng / Bão lửa để đi xa hơn!</p>
-      <button id="btnRetry">Chơi lại từ ải 1</button>
-      <button id="btnOpenShopFromOver" class="secondary">🛒 Mở Shop (Revive / Bão lửa)</button>
-    `;
-    overlay.style.display = 'flex';
-    document.getElementById('btnRetry').onclick = () => { ensureAudio(); startGame(); };
-    document.getElementById('btnOpenShopFromOver').onclick = () => { ensureAudio(); showShop('items', null, 'gameOver'); };
-  }
-  function showPauseOverlay() {
-    gameState = 'paused';
-    shopReturnMode = 'pause';
-    overlay.innerHTML = `
-      <h1>⏸ Tạm dừng</h1>
-      <p>Bạn đang ở ải <b>${stage}</b>. Gold hiện tại: <b>${progress.gold}</b>.</p>
-      <button id="btnResume">Tiếp tục chơi</button>
-      <button id="btnPauseShop" class="secondary">🛒 Mở Shop</button>
-      <button id="btnPauseToMenu" class="secondary">🏠 Về menu chính</button>
-    `;
-    overlay.style.display = 'flex';
-    document.getElementById('btnResume').onclick = () => {
-      ensureAudio(); playClickSound(); hideOverlay(); gameState = 'playing';
-    };
-    document.getElementById('btnPauseShop').onclick = () => {
-      ensureAudio(); showShop('items', null, 'pause');
-    };
-    document.getElementById('btnPauseToMenu').onclick = () => {
-      ensureAudio(); playClickSound(); showMainMenu();
-    };
-  }
-  function hideOverlay() { overlay.style.display = 'none'; }
-
-  // ===== SHOP COMMON =====
-  function setShopStatus(text, isError) {
-    const el = document.getElementById('shopStatusText');
-    if (!el) return;
-    el.textContent = text;
-    el.style.color = isError ? '#ff8080' : '#ffffff';
-  }
-
-  // ===== STARS → GOLD SHOP LOGIC =====
-  async function createStarsInvoice(stars, payload, title, description) {
-    const r = await fetch(BACKEND + '/api/create-invoice', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify({
-        title: title || 'Mua Gold',
-        description: description || 'Mua Gold dùng trong game bằng Telegram Stars.',
-        price_stars: stars,
-        payload
-      })
+  function sfxStageClearLaugh() {
+    const pattern = [
+      { f: 380, d: 0.09 },
+      { f: 520, d: 0.09 },
+      { f: 660, d: 0.12 },
+      { f: 580, d: 0.12 },
+      { f: 720, d: 0.16 },
+    ];
+    let delay = 0;
+    pattern.forEach((note) => {
+      setTimeout(() => playTone(note.f, note.d, { type: 'square', volume: 0.38 }), delay);
+      delay += note.d * 700;
     });
-    return r.json();
   }
-  async function deliverReward(payload) {
-    try {
-      const r = await fetch(BACKEND + '/api/deliver', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ payload })
+  function sfxEnemyDie() {
+    playSweep(650, 900, 0.12, { type: 'sawtooth', volume: 0.35 });
+    setTimeout(() => playNoise(0.08, { volume: 0.22 }), 40);
+  }
+  function sfxBossDie() {
+    playSweep(620, 980, 0.22, { type: 'triangle', volume: 0.4 });
+    setTimeout(() => {
+      if (!ensureAudio() || !audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+
+      osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+      osc.frequency.linearRampToValueAtTime(480, audioCtx.currentTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      const g = gain.gain;
+      const t0 = audioCtx.currentTime;
+      g.setValueAtTime(0.0001, t0);
+      g.linearRampToValueAtTime(0.32, t0 + 0.02);
+      g.exponentialRampToValueAtTime(0.0001, t0 + 0.38);
+
+      osc.start(t0);
+      osc.stop(t0 + 0.42);
+    }, 180);
+    setTimeout(() => playNoise(0.18, { volume: 0.26 }), 130);
+  }
+  function sfxGameOverTease() {
+    const groups = [
+      { freqs: [760, 840, 880], gap: 55 },
+      { freqs: [800, 880, 920], gap: 55 },
+      { freqs: [840, 920, 960], gap: 55 },
+    ];
+    let baseDelay = 0;
+    groups.forEach((g) => {
+      g.freqs.forEach((f, idx) => {
+        setTimeout(() => playTone(f, 0.07, { type: 'square', volume: 0.34 }), baseDelay + idx * g.gap);
       });
-      return r.json();
-    } catch (e) { return { ok:false, error:e.message }; }
+      setTimeout(() => {
+        playSweep(g.freqs[g.freqs.length - 1],
+                  g.freqs[g.freqs.length - 1] + 140,
+                  0.09,
+                  { type: 'triangle', volume: 0.28 });
+      }, baseDelay + g.freqs.length * g.gap + 20);
+      baseDelay += g.freqs.length * g.gap + 140;
+    });
+    setTimeout(() => playSweep(780, 360, 0.42, { type: 'sawtooth', volume: 0.32 }), baseDelay + 80);
+    setTimeout(() => playNoise(0.12, { volume: 0.22 }), baseDelay + 350);
+  }
+  // Shot: 1 viên, trầm hơn, đỡ chói
+  function sfxShot() {
+    playNoise(0.05, { volume: 0.3 });
+    playTone(420, 0.06, { type: 'square', volume: 0.25 });
+  }
+  function sfxExplosion() {
+    playNoise(0.25, { volume: 0.4 });
+    setTimeout(() => playSweep(220, 80, 0.25, { type:'triangle', volume:0.3 }), 10);
+  }
+  function sfxHit() {
+    playTone(500, 0.06, { type:'sawtooth', volume:0.3 });
   }
 
-  function applyGold(amount) {
-    progress.gold += amount;
-    saveProgress();
-    updateGoldHud();
+  // =============== GAME CORE ===============
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / canvas.width;
+    const scaleY = rect.height / canvas.height;
+    canvas._scaleX = scaleX;
+    canvas._scaleY = scaleY;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // Sky stars background
+  const skyStars = [];
+  for (let i = 0; i < 80; i++) {
+    skyStars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.3 + 0.5,
+      speed: Math.random() * 20 + 10,
+      alpha: Math.random() * 0.7 + 0.3
+    });
   }
 
-  async function buyGoldPack(packId) {
-    const pack = STARS_GOLD_PACKS.find(p => p.id === packId);
-    if (!pack) return;
-    const stars = pack.stars;
-    const gold  = pack.gold;
+  const playerImg = new Image();
+  playerImg.src = 'player.png';
+  const enemyImg = new Image();
+  enemyImg.src = 'enemy_girl.png';
+  const bossImg = new Image();
+  bossImg.src = 'boss_girl.png';
 
-    if (DEV_FREE_STARS) {
-      console.log('[DEV] Fake buy gold pack:', packId);
-      applyGold(gold);
-      setShopStatus(`(DEV) Đã cộng ${gold} Gold (gói ${stars}⭐).`, false);
-      return;
+  const player = {
+    x: canvas.width / 2,
+    y: canvas.height - 80,
+    width: 40,
+    height: 64,
+    speed: 260,
+    hp: 100,
+    maxHp: 100,
+    alive: true
+  };
+
+  let currentStage = 1;
+  let enemies = [];
+  let bullets = [];
+  let enemyBullets = [];
+  let gold = 0;
+  let firestormCount = 0;
+  let gameState = 'playing'; // 'playing' | 'menu' | 'gameover' | 'stageclear'
+  let paused = false;
+  let canContinue = false;
+
+  // weapons
+  const weapons = [
+    { id:'pistol', name:'Pistol', owned:true, level:1, maxLevel:10,
+      baseDmg:12, baseRate:0.40, bulletSpeed:420 },
+    { id:'rifle', name:'Rifle', owned:false, level:1, maxLevel:10,
+      baseDmg:9, baseRate:0.20, bulletSpeed:520 },
+    { id:'shotgun', name:'Shotgun', owned:false, level:1, maxLevel:8,
+      baseDmg:8, baseRate:0.55, bulletSpeed:380, pellets:4 },
+    { id:'sniper', name:'Sniper', owned:false, level:1, maxLevel:20,
+      baseDmg:55, baseRate:0.90, bulletSpeed:900, pierce:true }
+  ];
+  let currentWeaponIndex = 0;
+  let shootCooldown = 0;
+
+  const keys = {};
+  let pointerActive = false;
+  let pointerTarget = null;
+
+  let fireworks = [];
+
+  function showToast(msg, ms=1500) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('visible');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('visible'), ms);
+  }
+
+  // ========== SPAWN ENEMIES ==========
+  function spawnStage(stage) {
+    enemies = [];
+    enemyBullets = [];
+    bullets = [];
+    fireworks = [];
+
+    const baseCount = 8 + (stage - 1) * 4;
+    const hpBase = 40 + (stage - 1) * 12;
+    const dmgBase = 8 + (stage - 1) * 2;
+
+    for (let i=0;i<baseCount;i++) {
+      const row = Math.floor(i / 6);
+      const col = i % 6;
+      const paddingX = 40;
+      const spacingX = (canvas.width - paddingX*2) / 5;
+      enemies.push({
+        x: paddingX + spacingX * col,
+        y: 70 + row * 70,
+        width: 36,
+        height: 56,
+        hp: hpBase,
+        maxHp: hpBase,
+        dmg: dmgBase,
+        isBoss:false,
+        shootCooldown: Math.random()*2 + 1.2
+      });
     }
 
-    if (!inTelegram()) {
-      alert('Bạn chỉ có thể mua Gold bằng Stars khi mở game trong Telegram.');
-      return;
+    if (stage % 3 === 0) {
+      enemies.push({
+        x: canvas.width/2,
+        y: 60,
+        width: 52,
+        height: 80,
+        hp: hpBase*4,
+        maxHp: hpBase*4,
+        dmg: dmgBase*2,
+        isBoss:true,
+        shootCooldown: 0.9
+      });
     }
+  }
 
-    try {
-      setShopStatus('Đang tạo hoá đơn Stars...', false);
-      const payload = 'gold-pack-'+packId+'-'+Date.now();
-      const j = await createStarsInvoice(stars, payload,
-        `Mua ${gold} Gold`,
-        `Gói ${stars}⭐ đổi thành ${gold} Gold trong game.`
-      );
-      if (!j.ok || !j.invoiceLink) {
-        setShopStatus('Không tạo được invoice: '+(j.error||'unknown'), true); return;
+  function resetGame() {
+    currentStage = 1;
+    player.hp = player.maxHp = 100;
+    player.x = canvas.width/2;
+    player.y = canvas.height-80;
+    player.alive = true;
+    canContinue = false;
+    spawnStage(currentStage);
+    gameState = 'playing';
+    paused = false;
+    updateUI();
+  }
+
+  // ======= INPUT =======
+  window.addEventListener('keydown', (e) => {
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D'].includes(e.key)) {
+      e.preventDefault();
+      keys[e.key.toLowerCase()] = true;
+      initAudio();
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  canvas.addEventListener('pointerdown', (e) => {
+    initAudio();
+    pointerActive = true;
+    pointerTarget = getCanvasPos(e);
+  });
+  canvas.addEventListener('pointermove', (e)=>{
+    if (!pointerActive) return;
+    pointerTarget = getCanvasPos(e);
+  });
+  window.addEventListener('pointerup', ()=>{
+    pointerActive = false;
+  });
+
+  function getCanvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    return { x, y };
+  }
+
+  // ======= UPDATE =======
+  let lastTime = performance.now();
+  function loop(now) {
+    const dt = Math.min((now - lastTime)/1000, 0.05);
+    lastTime = now;
+
+    if (!paused && gameState === 'playing') {
+      updateGame(dt);
+    }
+    renderGame();
+
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function updateGame(dt) {
+    // background
+    for (const s of skyStars) {
+      s.y += s.speed * dt;
+      if (s.y > canvas.height) {
+        s.y = -5;
+        s.x = Math.random() * canvas.width;
       }
-      const link = j.invoiceLink;
-      tg.openInvoice(link, async (status) => {
-        const st = typeof status === 'string' ? status : status && status.status;
-        console.log('openInvoice gold pack status =', st);
-        if (st === 'paid') {
-          setShopStatus('Thanh toán thành công, đang cộng Gold...', false);
-          try { await deliverReward(payload); } catch(e){}
-          applyGold(gold);
-          setShopStatus(`Đã cộng ${gold} Gold vào tài khoản.`, false);
-        } else if (st === 'cancelled') {
-          setShopStatus('Bạn đã đóng cửa sổ thanh toán.', true);
-        } else if (st === 'failed') {
-          setShopStatus('Telegram báo lỗi thanh toán (failed).', true);
+    }
+
+    // move player: keyboard
+    let mvX = 0, mvY = 0;
+    if (keys['a'] || keys['arrowleft']) mvX -= 1;
+    if (keys['d'] || keys['arrowright']) mvX += 1;
+    if (keys['w'] || keys['arrowup']) mvY -= 1;
+    if (keys['s'] || keys['arrowdown']) mvY += 1;
+    // pointer target
+    if (pointerActive && pointerTarget) {
+      const dx = pointerTarget.x - player.x;
+      const dy = pointerTarget.y - player.y;
+      const dist = Math.hypot(dx,dy);
+      if (dist > 4) {
+        const dirx = dx/dist;
+        const diry = dy/dist;
+        player.x += dirx * player.speed * dt;
+        player.y += diry * player.speed * dt;
+      }
+    } else if (mvX !== 0 || mvY !== 0) {
+      const len = Math.hypot(mvX,mvY) || 1;
+      mvX/=len; mvY/=len;
+      player.x += mvX * player.speed * dt;
+      player.y += mvY * player.speed * dt;
+    }
+    const topLimit = 260;
+    const bottomLimit = canvas.height-60;
+    player.x = Math.max(20, Math.min(canvas.width-20, player.x));
+    player.y = Math.max(topLimit, Math.min(bottomLimit, player.y));
+
+    // shoot
+    shootCooldown -= dt;
+    if (shootCooldown <= 0) {
+      shootWeapon();
+    }
+
+    // update bullets
+    for (const b of bullets) {
+      b.y -= b.speed * dt;
+    }
+    bullets = bullets.filter(b => b.y > -20);
+
+    for (const eb of enemyBullets) {
+      eb.y += eb.speed * dt;
+    }
+    enemyBullets = enemyBullets.filter(b => b.y < canvas.height + 20);
+
+    // enemies
+    for (const e of enemies) {
+      e.shootCooldown -= dt;
+      if (e.shootCooldown <= 0) {
+        enemyShoot(e);
+      }
+    }
+
+    // collisions: bullet -> enemy
+    for (const b of bullets) {
+      for (const e of enemies) {
+        if (rectHit(b, e)) {
+          e.hp -= b.dmg;
+          sfxHit();
+          b.dead = true;
+          if (weapons[currentWeaponIndex].id === 'sniper') {
+            // sniper pierce: bullet vẫn đi tiếp nhưng giảm dmg
+            b.dmg *= 0.7;
+            if (b.dmg < 5) b.dead = true;
+          } else {
+            break;
+          }
+        }
+      }
+    }
+    bullets = bullets.filter(b => !b.dead);
+
+    // enemy death
+    let gainedGold = 0;
+    const enemiesBefore = enemies.length;
+    enemies = enemies.filter(e => {
+      if (e.hp <= 0) {
+        gainedGold += e.isBoss ? 40 : 10;
+        if (e.isBoss) sfxBossDie(); else sfxEnemyDie();
+        return false;
+      }
+      return true;
+    });
+    if (gainedGold>0) {
+      gold += gainedGold;
+      updateUI();
+    }
+
+    // enemy bullets -> player
+    for (const eb of enemyBullets) {
+      if (!player.alive) break;
+      if (rectHit(eb, player)) {
+        eb.dead = true;
+        player.hp -= eb.dmg;
+        sfxPlayerHit();
+        if (player.hp <= 0) {
+          player.hp = 0;
+          player.alive = false;
+          onGameOver();
+        }
+      }
+    }
+    enemyBullets = enemyBullets.filter(b => !b.dead);
+
+    // stage clear?
+    if (enemies.length === 0 && player.alive) {
+      onStageClear();
+    }
+
+    // fireworks update
+    for (const fw of fireworks) {
+      fw.life -= dt;
+      for (const p of fw.particles) {
+        p.x += p.vx*dt;
+        p.y += p.vy*dt;
+        p.vy += 10*dt;
+        p.alpha -= dt*1.2;
+      }
+      fw.particles = fw.particles.filter(p => p.alpha>0);
+    }
+    fireworks = fireworks.filter(fw => fw.life>0 && fw.particles.length>0);
+
+    updateUI();
+  }
+
+  function rectHit(a,b) {
+    return Math.abs(a.x - b.x) < (a.w + b.width)/2 &&
+           Math.abs(a.y - b.y) < (a.h + b.height)/2;
+  }
+
+  function shootWeapon() {
+    const w = weapons[currentWeaponIndex];
+    const rateMod = 1 - (w.level-1)*0.04;
+    let interval = Math.max(0.12, w.baseRate*rateMod);
+    shootCooldown = interval;
+
+    if (!player.alive) return;
+
+    const baseX = player.x;
+    const baseY = player.y - player.height/2;
+
+    if (w.id === 'shotgun') {
+      const n = w.pellets || 4;
+      for (let i=0;i<n;i++) {
+        const angle = (Math.random()*0.4 - 0.2);
+        bullets.push({
+          x: baseX + (Math.random()*10-5),
+          y: baseY,
+          w: 6,
+          h: 12,
+          speed: w.bulletSpeed,
+          dmg: w.baseDmg + w.level*3,
+          angle
+        });
+      }
+    } else {
+      bullets.push({
+        x: baseX,
+        y: baseY,
+        w: 6,
+        h: 14,
+        speed: w.bulletSpeed,
+        dmg: w.baseDmg + w.level*4,
+        angle:0
+      });
+    }
+    sfxShot();
+  }
+
+  function enemyShoot(e) {
+    e.shootCooldown = (Math.random()*1 + 1.2);
+    const speed = 160 + currentStage*10;
+    enemyBullets.push({
+      x: e.x,
+      y: e.y + e.height/2,
+      w: 6,
+      h: 10,
+      speed,
+      dmg: e.dmg
+    });
+  }
+
+  function onStageClear() {
+    gameState = 'stageclear';
+    paused = true;
+    currentStage++;
+    sfxStageClearLaugh();
+    spawnFireworks();
+    showMenuOverlay('🎉 Stage Clear',
+      'Bạn đã dọn sạch kẻ địch. Nhấn "Tiếp tục" để sang stage ' + currentStage + '.');
+  }
+
+  function onGameOver() {
+    gameState = 'gameover';
+    paused = true;
+    canContinue = true;
+    sfxGameOverTease();
+    showMenuOverlay('💀 Game Over',
+      'Bạn đã bị hạ gục. Có thể vào Shop mua "Chơi tiếp" hoặc chơi lại từ Stage 1.');
+  }
+
+  function spawnFireworks() {
+    fireworks = [];
+    for (let i=0;i<7;i++) {
+      const cx = Math.random()*canvas.width;
+      const cy = 160 + Math.random()*120;
+      const parts = [];
+      for (let j=0;j<28;j++) {
+        const angle = Math.random()*Math.PI*2;
+        const speed = 80 + Math.random()*120;
+        parts.push({
+          x:cx, y:cy,
+          vx: Math.cos(angle)*speed,
+          vy: Math.sin(angle)*speed,
+          alpha:1
+        });
+      }
+      fireworks.push({ life:1.1, particles:parts });
+    }
+    sfxExplosion();
+  }
+
+  // ====== RENDER ======
+  function renderGame() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // background
+    ctx.fillStyle = '#02030a';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // moving stars
+    for (const s of skyStars) {
+      ctx.globalAlpha = s.alpha;
+      ctx.fillStyle = '#dfe7ff';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // enemies
+    for (const e of enemies) {
+      const img = e.isBoss ? bossImg : enemyImg;
+      if (img.complete && img.width>0) {
+        ctx.drawImage(img, e.x - e.width/2, e.y - e.height/2, e.width, e.height);
+      } else {
+        ctx.fillStyle = e.isBoss ? '#aa0066' : '#e63737';
+        ctx.fillRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
+      }
+      // HP bar
+      const barW = e.width;
+      const barH = 4;
+      const hpRatio = Math.max(0, e.hp / e.maxHp);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(e.x-barW/2, e.y - e.height/2 - 6, barW, barH);
+      ctx.fillStyle = '#39ff62';
+      ctx.fillRect(e.x-barW/2, e.y - e.height/2 - 6, barW*hpRatio, barH);
+    }
+
+    // player
+    if (player.alive) {
+      if (playerImg.complete && playerImg.width>0) {
+        ctx.drawImage(playerImg, player.x - player.width/2, player.y - player.height/2,
+                      player.width, player.height);
+      } else {
+        ctx.fillStyle = '#2af0ff';
+        ctx.fillRect(player.x - player.width/2, player.y - player.height/2, player.width, player.height);
+      }
+    }
+
+    // bullets
+    ctx.fillStyle = '#ffdd33';
+    for (const b of bullets) {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      if (b.angle) ctx.rotate(-b.angle);
+      ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h);
+      ctx.restore();
+    }
+
+    // enemy bullets
+    ctx.fillStyle = '#ff4b4b';
+    for (const eb of enemyBullets) {
+      ctx.beginPath();
+      ctx.arc(eb.x, eb.y, 4, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // fireworks
+    for (const fw of fireworks) {
+      for (const p of fw.particles) {
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = '#ffdd55';
+        ctx.fillRect(p.x, p.y, 3, 3);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ===== UI / SHOP / STARS =====
+  const stageValueEl = document.getElementById('stageValue');
+  const hpValueEl = document.getElementById('hpValue');
+  const hpBarInnerEl = document.getElementById('hpBarInner');
+  const goldValueEl = document.getElementById('goldValue');
+  const weaponNameEl = document.getElementById('weaponName');
+  const weaponLevelEl = document.getElementById('weaponLevel');
+  const fireCountEl = document.getElementById('fireCount');
+  const shopGoldDisplayEl = document.getElementById('shopGoldDisplay');
+  const weaponShopEl = document.getElementById('weaponShop');
+
+  function updateUI() {
+    stageValueEl.textContent = currentStage;
+    hpValueEl.textContent = Math.round(player.hp);
+    const ratio = player.hp / player.maxHp;
+    hpBarInnerEl.style.width = Math.max(0, Math.min(1, ratio))*100 + '%';
+    goldValueEl.textContent = gold;
+    fireCountEl.textContent = firestormCount;
+    shopGoldDisplayEl.textContent = gold;
+    const w = weapons[currentWeaponIndex];
+    weaponNameEl.textContent = w.name;
+    weaponLevelEl.textContent = 'Lv.' + w.level;
+    renderWeaponShop();
+  }
+
+  function renderWeaponShop() {
+    weaponShopEl.innerHTML = '';
+    weapons.forEach((w, idx)=>{
+      const row = document.createElement('div');
+      row.className = 'shop-item';
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const ownedText = w.owned ? 'Đã mở' : 'Chưa mở';
+      meta.innerHTML = `<span>🔫 ${w.name} (${ownedText})</span>`;
+      if (w.owned) {
+        meta.innerHTML += `<span class="desc">Lv.${w.level}/${w.maxLevel} – tăng dame & tốc độ bắn.</span>`;
+      } else {
+        meta.innerHTML += `<span class="desc">Mở khoá vũ khí mới.</span>`;
+      }
+      const btn = document.createElement('button');
+      btn.className = 'btn secondary';
+      btn.dataset.wid = w.id;
+      if (!w.owned) {
+        const cost = 80 + idx*40;
+        btn.textContent = cost + 'G Mở';
+        btn.dataset.cost = cost;
+      } else if (w.level < w.maxLevel) {
+        const cost = 40 + w.level*10;
+        btn.textContent = cost + 'G Nâng cấp';
+        btn.dataset.cost = cost;
+      } else {
+        btn.textContent = 'Max Lv';
+        btn.disabled = true;
+      }
+      row.appendChild(meta);
+      row.appendChild(btn);
+      weaponShopEl.appendChild(row);
+    });
+  }
+
+  document.getElementById('gunChip').addEventListener('click', () => {
+    initAudio();
+    // đổi súng
+    let tries = 0;
+    do {
+      currentWeaponIndex = (currentWeaponIndex + 1) % weapons.length;
+      tries++;
+      if (tries>weapons.length) break;
+    } while (!weapons[currentWeaponIndex].owned);
+    updateUI();
+  });
+
+  document.getElementById('shopChip').addEventListener('click', () => {
+    paused = true;
+    showOverlay('shopOverlay', true);
+  });
+
+  document.getElementById('btnCloseShop').addEventListener('click', () => {
+    showOverlay('shopOverlay', false);
+    if (gameState === 'playing') paused = false;
+  });
+
+  // Stars->Gold buttons
+  document.querySelectorAll('#shopOverlay .panel-row .btn[data-stars]')
+    .forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const stars = Number(btn.dataset.stars);
+        await buyGoldWithStars(stars);
+      });
+    });
+
+  // Gold shop items
+  document.querySelectorAll('#goldShopItems .btn[data-gitem]')
+    .forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.dataset.gitem;
+        handleGoldItem(id);
+      });
+    });
+
+  // Weapon shop click (event delegation)
+  weaponShopEl.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-wid]');
+    if (!btn) return;
+    const wid = btn.dataset.wid;
+    const cost = Number(btn.dataset.cost||0);
+    const w = weapons.find(x=>x.id===wid);
+    if (!w) return;
+    if (w.owned) {
+      // upgrade
+      if (w.level>=w.maxLevel) {
+        showToast('Vũ khí đã max level.');
+        return;
+      }
+      if (gold<cost) {
+        showToast('Không đủ Gold để nâng cấp.');
+        return;
+      }
+      gold-=cost;
+      w.level++;
+      showToast(`Nâng ${w.name} lên Lv.${w.level}!`);
+    } else {
+      if (gold<cost) {
+        showToast('Không đủ Gold để mua vũ khí.');
+        return;
+      }
+      gold-=cost;
+      w.owned=true;
+      showToast(`Đã mở khoá ${w.name}!`);
+    }
+    updateUI();
+  });
+
+  function handleGoldItem(id) {
+    if (id==='heal') {
+      const cost = 20;
+      if (gold<cost) return showToast('Không đủ Gold để hồi máu.');
+      gold-=cost;
+      player.hp = Math.min(player.maxHp, player.hp+50);
+      showToast('Đã hồi +50 HP!');
+    } else if (id==='armor') {
+      const cost = 40;
+      if (gold<cost) return showToast('Không đủ Gold để mua giáp.');
+      gold-=cost;
+      player.maxHp += 20;
+      player.hp += 20;
+      showToast('HP tối đa +20, đã cộng ngay 20 HP!');
+    } else if (id==='continue') {
+      const cost = 60;
+      if (gold<cost) return showToast('Không đủ Gold để mua Chơi tiếp.');
+      if (!canContinue) return showToast('Chỉ dùng được sau khi thua màn.');
+      gold-=cost;
+      player.hp = player.maxHp;
+      player.alive = true;
+      gameState = 'playing';
+      paused = false;
+      canContinue = false;
+      showOverlay('menuOverlay', false);
+      enemyBullets = [];
+      showToast('Đã chơi tiếp màn hiện tại!');
+    } else if (id==='firestorm') {
+      const cost = 40;
+      if (gold<cost) return showToast('Không đủ Gold để mua Bão lửa.');
+      gold-=cost;
+      firestormCount += 3;
+      showToast('Đã mua Bão lửa x3!');
+    }
+    updateUI();
+  }
+
+  async function buyGoldWithStars(starsAmount) {
+    if (!tg) {
+      alert('Hãy mở bot trong Telegram để thanh toán bằng Stars.');
+      return;
+    }
+    try {
+      const payload = 'gold-' + starsAmount + '-' + Date.now();
+      const resp = await fetch(BACKEND_URL + '/api/create-invoice', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          title:`Mua Gold (${starsAmount}⭐)`,
+          description:`Đổi ${starsAmount} Telegram Stars lấy Gold trong game`,
+          price_stars: starsAmount,
+          payload
+        })
+      });
+      const j = await resp.json();
+      if (!j.ok || !j.invoiceLink) {
+        console.error('Create invoice error', j);
+        showToast('Không tạo được hoá đơn Stars.');
+        return;
+      }
+      const invoiceLink = j.invoiceLink;
+      tg.openInvoice(invoiceLink, async (status)=>{
+        console.log('Stars payment status:', status);
+        if (status === 'paid' || status === 'successful_payment' || status === 'ok') {
+          const gained = starsAmount * GOLD_PER_STAR;
+          gold += gained;
+          showToast(`Đã nhận +${gained} Gold!`);
+          updateUI();
+          try {
+            await fetch(BACKEND_URL + '/api/deliver', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({ payload })
+            });
+          } catch(e){}
         } else {
-          setShopStatus('Thanh toán không thành công, trạng thái: '+st, true);
+          showToast('Thanh toán Stars bị huỷ / lỗi.');
         }
       });
     } catch (e) {
       console.error(e);
-      setShopStatus('Lỗi khi tạo/mở invoice: '+e.message, true);
+      showToast('Lỗi kết nối backend Stars.');
     }
   }
 
-  // ===== ITEM SHOP (Gold) LOGIC =====
-  function getItemPriceGold(id, qty) {
-    const p = ITEM_PRODUCTS[id]; if (!p) return null;
-    qty = qty || 1;
-    if (p.type === 'upgradeWeapon') {
-      const wl = progress.weaponLevels[p.weaponKey] || 1;
-      const maxLv = getMaxWeaponLevel(p.weaponKey);
-      if (!progress.unlockedWeapons[p.weaponKey]) return null;
-      if (wl >= maxLv) return null;
-      return p.baseGold * wl;
-    }
-    if (p.type === 'firestorm') {
-      return p.priceGold * qty;
-    }
-    return p.priceGold || null;
-  }
-
-  function getItemStateText(p) {
-    if (p.type === 'unlockWeapon') {
-      const unlocked = !!progress.unlockedWeapons[p.weaponKey];
-      return unlocked ? 'Đã mở khóa' : 'Chưa sở hữu';
-    }
-    if (p.type === 'upgradeWeapon') {
-      const lvl = progress.weaponLevels[p.weaponKey] || 1;
-      const maxLv = getMaxWeaponLevel(p.weaponKey);
-      if (!progress.unlockedWeapons[p.weaponKey]) return 'Chưa mở khóa vũ khí này';
-      if (lvl >= maxLv) return `Đã tối đa (Lv.${lvl})`;
-      return `Hiện tại: Lv.${lvl}`;
-    }
-    if (p.type === 'heal') {
-      return 'Hồi 50 HP trong trận hiện tại';
-    }
-    if (p.type === 'armor') {
-      return `Giáp hiện tại: +${progress.armorLevel*20} HP tối đa`;
-    }
-    if (p.type === 'revive') {
-      return 'Chỉ dùng khi vừa thua 1 ải (mỗi ải 1 lần)';
-    }
-    if (p.type === 'firestorm') {
-      return `Đang có: ${progress.firestormCharges || 0} lần Bão lửa`;
-    }
-    return '';
-  }
-
-  function canBuyItemGold(id, qtyForCheck) {
-    const p = ITEM_PRODUCTS[id]; if (!p) return false;
-    const qty = qtyForCheck || 1;
-    const price = getItemPriceGold(id, qty);
-    if (price == null) return false;
-    if (progress.gold < price) return false;
-
-    if (p.type === 'heal') {
-      if (!(gameState === 'playing' || gameState === 'paused')) return false;
-      if (player.hp >= player.maxHp) return false;
-      return true;
-    }
-    if (p.type === 'armor') return true;
-    if (p.type === 'revive') {
-      if (gameState !== 'gameOver') return false;
-      if (reviveUsedThisStage) return false;
-      return true;
-    }
-    if (p.type === 'firestorm') {
-      return true;
-    }
-    if (p.type === 'unlockWeapon') {
-      if (progress.unlockedWeapons[p.weaponKey]) return false;
-      return true;
-    }
-    if (p.type === 'upgradeWeapon') {
-      if (!progress.unlockedWeapons[p.weaponKey]) return false;
-      const lvl = progress.weaponLevels[p.weaponKey] || 1;
-      const maxLv = getMaxWeaponLevel(p.weaponKey);
-      if (lvl >= maxLv) return false;
-      return true;
-    }
-    return true;
-  }
-
-  function applyItemEffect(id, qty) {
-    const p = ITEM_PRODUCTS[id]; if (!p) return;
-    qty = qty || 1;
-
-    if (p.type === 'heal') {
-      player.hp = Math.min(player.maxHp, player.hp + 50);
-      showShop('items', 'Đã hồi 50 HP cho trận hiện tại.', shopReturnMode);
-      return;
-    }
-    if (p.type === 'armor') {
-      progress.armorLevel += 1;
-      player.maxHp = 100 + progress.armorLevel * 20;
-      player.hp = Math.min(player.maxHp, player.hp + 20);
-      saveProgress();
-      updateHud();
-      showShop('items', 'Đã tăng giáp vĩnh viễn (+20 HP tối đa, áp dụng ngay).', shopReturnMode);
-      return;
-    }
-    if (p.type === 'revive') {
-      if (gameState !== 'gameOver' || reviveUsedThisStage) {
-        showShop('items', 'Revive chỉ dùng được ngay sau khi thua và mỗi ải 1 lần.', shopReturnMode);
-        return;
-      }
-      reviveUsedThisStage = true;
-      player.hp = player.maxHp * 0.7;
-      enemyBullets = [];
-      gameState = 'playing';
-      hideOverlay();
-      playExplosionSound();
-      return;
-    }
-    if (p.type === 'firestorm') {
-      progress.firestormCharges = (progress.firestormCharges || 0) + qty;
-      saveProgress();
-      updateFirestormHud();
-      showShop('items', `Đã mua thêm ${qty} lần Bão lửa.`, shopReturnMode);
-      return;
-    }
-    if (p.type === 'unlockWeapon') {
-      progress.unlockedWeapons[p.weaponKey] = true;
-      if (!progress.weaponLevels[p.weaponKey] || progress.weaponLevels[p.weaponKey]<=0) {
-        progress.weaponLevels[p.weaponKey] = 1;
-      }
-      saveProgress();
-      updateHudWeapon();
-      showShop('items', 'Mua thành công! Vũ khí mới đã được mở khóa.', shopReturnMode);
-      return;
-    }
-    if (p.type === 'upgradeWeapon') {
-      if (!progress.unlockedWeapons[p.weaponKey]) {
-        showShop('items', 'Chưa mở khóa vũ khí này.', shopReturnMode);
-        return;
-      }
-      const maxLv = getMaxWeaponLevel(p.weaponKey);
-      const lvl = progress.weaponLevels[p.weaponKey] || 1;
-      if (lvl >= maxLv) {
-        showShop('items', 'Vũ khí này đã tối đa.', shopReturnMode);
-        return;
-      }
-      progress.weaponLevels[p.weaponKey] = Math.min(maxLv, lvl+1);
-      saveProgress();
-      if (player.weaponKey === p.weaponKey) updateHudWeapon();
-      showShop('items', 'Nâng cấp thành công! Vũ khí mạnh hơn rồi.', shopReturnMode);
-      return;
-    }
-  }
-
-  function buyItemGold(id, qty) {
-    qty = qty || 1;
-    const price = getItemPriceGold(id, qty);
-    if (price == null) {
-      setShopStatus('Mục này hiện không thể mua.', true); return;
-    }
-    if (!canBuyItemGold(id, qty)) {
-      if (progress.gold < price) {
-        setShopStatus('Không đủ Gold để mua.', true);
+  // ===== MENUS / PAUSE =====
+  const menuOverlay = document.getElementById('menuOverlay');
+  const menuTitle = document.getElementById('menuTitle');
+  const menuDesc = document.getElementById('menuDesc');
+  document.getElementById('btnResume').addEventListener('click', ()=>{
+    if (gameState==='playing') {
+      paused = false;
+      showOverlay('menuOverlay', false);
+    } else if (gameState==='stageclear') {
+      spawnStage(currentStage);
+      gameState='playing';
+      paused=false;
+      showOverlay('menuOverlay', false);
+    } else if (gameState==='gameover') {
+      if (!canContinue) {
+        paused=false;
+        gameState='playing';
+        showOverlay('menuOverlay', false);
       } else {
-        setShopStatus('Mục này hiện không khả dụng trong trạng thái hiện tại.', true);
-      }
-      return;
-    }
-    progress.gold -= price;
-    saveProgress();
-    updateGoldHud();
-    setShopStatus(`Đã trừ ${price} Gold.`, false);
-    applyItemEffect(id, qty);
-  }
-
-  // ===== SHOP UI RENDER =====
-  function buildStarsShopRows() {
-    const rows = [];
-    for (const pack of STARS_GOLD_PACKS) {
-      rows.push(`
-        <div class="shop-item">
-          <div class="shop-item-header">
-            <span class="shop-item-title">Gói ${pack.stars}⭐ → ${pack.gold} Gold</span>
-          </div>
-          <div class="shop-item-desc">
-            Dùng ${pack.stars} Telegram Stars để nhận ${pack.gold} Gold trong game (1⭐ = 10 Gold).
-          </div>
-          <div class="shop-item-footer">
-            <div class="shop-price">
-              <span>Giá:</span>
-              <b>${pack.stars} ⭐</b>
-            </div>
-            <button
-              class="secondary"
-              data-pack-id="${pack.id}"
-              style="padding:6px 10px;border-radius:999px;font-size:12px;">
-              Mua bằng Stars
-            </button>
-          </div>
-        </div>
-      `);
-    }
-    return rows.join('');
-  }
-
-  function buildItemsShopRows() {
-    const rows = [];
-
-    // Heal
-    rows.push(renderItemRow('heal_full', '20 🪙', 1));
-    // Armor
-    rows.push(renderItemRow('armor_plus', '120 🪙', 1));
-    // Revive
-    rows.push(renderItemRow('revive_continue', '100 🪙', 1));
-    // Firestorm
-    rows.push(renderItemRow('firestorm', '40 🪙 / 1 lần', 1, true));
-
-    function pushWeaponSlot(weaponKey, unlockId, upgradeId) {
-      const unlocked = !!progress.unlockedWeapons[weaponKey];
-      const maxLv = getMaxWeaponLevel(weaponKey);
-      const lvl = progress.weaponLevels[weaponKey] || (unlocked ? 1 : 0);
-      if (!unlocked) {
-        const price = ITEM_PRODUCTS[unlockId].priceGold;
-        rows.push(renderItemRow(unlockId, `${price} 🪙`, 1));
-      } else if (lvl < maxLv) {
-        const price = getItemPriceGold(upgradeId, 1);
-        rows.push(renderItemRow(upgradeId, `${price} 🪙 (nâng lên Lv.${lvl+1})`, 1));
-      } else {
-        // max -> ẩn
+        showToast('Mua "Chơi tiếp" trong Shop để tiếp tục.');
       }
     }
+  });
+  document.getElementById('btnRestart').addEventListener('click', ()=>{
+    resetGame();
+    showOverlay('menuOverlay', false);
+  });
 
-    pushWeaponSlot('rifle',   'unlock_rifle',   'upgrade_rifle');
-    pushWeaponSlot('shotgun', 'unlock_shotgun', 'upgrade_shotgun');
-    pushWeaponSlot('sniper',  'unlock_sniper',  'upgrade_sniper');
-
-    const pistolMaxLv = getMaxWeaponLevel('pistol');
-    const pistolLv = progress.weaponLevels.pistol || 1;
-    if (pistolLv < pistolMaxLv) {
-      const price = getItemPriceGold('upgrade_pistol', 1);
-      rows.push(renderItemRow('upgrade_pistol', `${price} 🪙 (nâng lên Lv.${pistolLv+1})`, 1));
-    }
-
-    return rows.join('');
+  function showOverlay(id, visible) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (visible) el.classList.add('visible');
+    else el.classList.remove('visible');
   }
 
-  function renderItemRow(id, priceLabel, qtyForButton, isFirestorm) {
-    const p = ITEM_PRODUCTS[id];
-    const stateText = getItemStateText(p);
-    const buyable = canBuyItemGold(id, qtyForButton || 1);
-    const labelBtn = buyable ? (isFirestorm ? 'Mua Bão lửa' : 'Mua') : 'Không thể mua';
-    const disabledAttr = buyable ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
-
-    return `
-      <div class="shop-item">
-        <div class="shop-item-header">
-          <span class="shop-item-title">${p.title || ('Item '+p.id)}</span>
-          <span style="font-size:11px;opacity:0.8;">${p.type}</span>
-        </div>
-        <div class="shop-item-desc">${p.description || ''}</div>
-        <div class="shop-item-footer">
-          <div class="shop-price">
-            <span>Giá:</span>
-            <b>${priceLabel}</b>
-          </div>
-          <button
-            class="secondary"
-            data-item-id="${p.id}"
-            ${disabledAttr}
-            style="padding:6px 10px;border-radius:999px;font-size:12px;">
-            ${labelBtn}
-          </button>
-        </div>
-        <div class="shop-status-text">${stateText}</div>
-      </div>
-    `;
+  function showMenuOverlay(title, desc) {
+    menuTitle.textContent = title;
+    menuDesc.textContent = desc;
+    showOverlay('menuOverlay', true);
   }
 
-  function showShop(activeTab, message, returnMode) {
-    if (activeTab) shopActiveTab = activeTab;
-    if (returnMode) shopReturnMode = returnMode;
-
-    const msg = message || (shopActiveTab === 'stars'
-      ? 'Dùng Stars để mua Gold (1⭐ = 10 Gold).'
-      : 'Dùng Gold để mua hồi máu, giáp, revive, Bão lửa, vũ khí và nâng cấp.');
-
-    const starsActive = shopActiveTab === 'stars';
-    const contentHtml = starsActive ? buildStarsShopRows() : buildItemsShopRows();
-
-    overlay.innerHTML = `
-      <h1>🛒 Shop</h1>
-      <p>Gold hiện tại: <b>${progress.gold}</b></p>
-
-      <div class="shop-tabs">
-        <button id="tabStars" class="shop-tab ${starsActive ? 'active' : ''}">⭐ Stars → Gold</button>
-        <button id="tabItems" class="shop-tab ${!starsActive ? 'active' : ''}">🪙 Gold → Vật phẩm</button>
-      </div>
-
-      <p style="font-size:13px;opacity:0.9;">${msg}</p>
-
-      <div class="shop-list">
-        ${contentHtml}
-      </div>
-
-      <button id="btnBackFromShop" class="secondary">⬅ Quay lại</button>
-      <small id="shopStatusText" style="margin-top:4px;">
-        Dùng Stars để mua Gold, sau đó dùng Gold để mua vật phẩm trong game.
-      </small>
-    `;
-    overlay.style.display = 'flex';
-
-    document.getElementById('tabStars').onclick = () => {
-      ensureAudio(); playClickSound();
-      showShop('stars', null, shopReturnMode);
-    };
-    document.getElementById('tabItems').onclick = () => {
-      ensureAudio(); playClickSound();
-      showShop('items', null, shopReturnMode);
-    };
-
-    document.getElementById('btnBackFromShop').onclick = () => {
-      playClickSound();
-      const mode = shopReturnMode || 'menu';
-      if (mode === 'playing') {
-        hideOverlay();
-        gameState = 'playing';
-      } else if (mode === 'pause') {
-        showPauseOverlay();
-      } else if (mode === 'menu') {
-        showMainMenu();
-      } else if (mode === 'stageClear') {
-        showStageClear();
-      } else if (mode === 'gameOver') {
-        showGameOver();
-      } else {
-        hideOverlay();
-      }
-    };
-
-    if (starsActive) {
-      document.querySelectorAll('.shop-item button[data-pack-id]').forEach(btn => {
-        btn.onclick = () => {
-          const id = btn.getAttribute('data-pack-id');
-          ensureAudio(); playClickSound();
-          buyGoldPack(id);
-        };
-      });
+  const pauseBtnInner = document.getElementById('pauseBtnInner');
+  pauseBtnInner.addEventListener('click', ()=>{
+    if (gameState!=='playing') return;
+    paused = !paused;
+    if (paused) {
+      showMenuOverlay('⏸ Tạm dừng', 'Game đang tạm dừng. Nhấn "Tiếp tục" để chơi tiếp.');
     } else {
-      document.querySelectorAll('.shop-item button[data-item-id]').forEach(btn => {
-        btn.onclick = () => {
-          const id = btn.getAttribute('data-item-id');
-          ensureAudio(); playClickSound();
-          const p = ITEM_PRODUCTS[id];
-          if (p && p.type === 'firestorm') {
-            let qty = 1;
-            const s = prompt('Bạn muốn mua bao nhiêu lần Bão lửa? (1 - 10)', '1');
-            if (s == null) return;
-            const n = parseInt(s, 10);
-            if (isNaN(n) || n < 1 || n > 10) {
-              setShopStatus('Số lượng không hợp lệ (1-10).', true);
-              return;
-            }
-            qty = n;
-            buyItemGold(id, qty);
-          } else {
-            buyItemGold(id, 1);
-          }
-        };
-      });
-    }
-  }
-
-  // ===== HUD BUTTONS =====
-  btnShopHud.addEventListener('click', () => {
-    ensureAudio(); playClickSound();
-    if (gameState === 'playing') {
-      gameState = 'paused';
-      showShop('items', null, 'playing');
-    } else {
-      showShop('items', null, gameState);
+      showOverlay('menuOverlay', false);
     }
   });
 
-  function cycleWeapon() {
-    let idx = WEAPON_KEYS.indexOf(player.weaponKey);
-    for (let i = 1; i <= WEAPON_KEYS.length; i++) {
-      const nextKey = WEAPON_KEYS[(idx + i) % WEAPON_KEYS.length];
-      if (progress.unlockedWeapons[nextKey]) {
-        player.weaponKey = nextKey;
-        break;
-      }
+  // Bão lửa
+  document.getElementById('fireBtn').addEventListener('click', ()=>{
+    if (firestormCount<=0) {
+      showToast('Bạn chưa có Bão lửa. Mua trong Shop bằng Gold.');
+      return;
     }
-    updateHudWeapon();
-  }
-
-  btnWeapon.addEventListener('click', () => {
-    ensureAudio();
-    playClickSound();
-    cycleWeapon();
-  });
-
-  btnPauseHud.addEventListener('click', () => {
-    ensureAudio();
-    playClickSound();
-    if (gameState === 'playing' || gameState === 'paused') {
-      showPauseOverlay();
-    }
-  });
-
-  // ===== FIRESTORM SKILL =====
-  function useFirestormSkill() {
-    if (gameState !== 'playing') return;
-    const charges = progress.firestormCharges || 0;
-    if (charges <= 0) return;
-    progress.firestormCharges = charges - 1;
-    saveProgress();
-    updateFirestormHud();
-    firestormFlashTimer = 0.25;
-    playExplosionSound();
-
+    firestormCount--;
+    // Quét đạn + trừ 10% HP quái
     enemyBullets = [];
-    for (let i = enemies.length - 1; i >= 0; i--) {
-      const e = enemies[i];
-      const dmg = e.maxHp * 0.10;
-      e.hp -= dmg;
-      e.hitTimer = 0.2;
-      if (e.hp <= 0) {
-        enemies.splice(i,1);
-      }
+    for (const e of enemies) {
+      e.hp -= e.maxHp * 0.10;
     }
-    if (enemies.length === 0) {
-      onStageClear();
-    }
-  }
-
-  btnShoot.addEventListener('click', () => {
-    ensureAudio();
-    useFirestormSkill();
+    sfxExplosion();
+    updateUI();
   });
 
-  // ===== INPUT: KEYBOARD =====
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
-    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
-
-    if (e.code === 'KeyQ') {
-      cycleWeapon();
-    }
-    if (gameState==='menu' && e.code==='Enter') { ensureAudio(); startGame(); }
-    else if (gameState==='stageClear' && e.code==='Enter') { ensureAudio(); nextStage(); }
-    else if (gameState==='gameOver' && e.code==='Enter') { ensureAudio(); startGame(); }
-  });
-  window.addEventListener('keyup', (e) => {
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
-    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
-  });
-
-  // ===== INPUT: TOUCH / DRAG =====
-  let isDragging = false;
-  function pointerToCanvasX(ev) {
-    const rect = canvas.getBoundingClientRect();
-    return (ev.clientX - rect.left) * (canvas.width / rect.width);
-  }
-
-  canvas.addEventListener('pointerdown', (ev) => {
-    ensureAudio();
-    isDragging = true;
-    const x = pointerToCanvasX(ev);
-    const clamped = Math.max(player.width/2+10, Math.min(canvas.width-player.width/2-10, x));
-    const dir = Math.sign(clamped - player.x);
-    if (dir !== 0) player.moveDir = dir;
-    player.x = clamped;
-  });
-  canvas.addEventListener('pointermove', (ev) => {
-    if (!isDragging) return;
-    const x = pointerToCanvasX(ev);
-    const clamped = Math.max(player.width/2+10, Math.min(canvas.width-player.width/2-10, x));
-    const dir = Math.sign(clamped - player.x);
-    if (dir !== 0) player.moveDir = dir;
-    player.x = clamped;
-  });
-  canvas.addEventListener('pointerup',   () => { isDragging = false; });
-  canvas.addEventListener('pointerleave',() => { isDragging = false; });
-
-  // ===== GAME UPDATE =====
-  function updatePlayer(dt) {
-    let dir = 0;
-    if (keys.left && !keys.right) dir = -1;
-    else if (keys.right && !keys.left) dir = 1;
-
-    if (dir !== 0) {
-      player.moveDir = dir;
-    } else {
-      player.moveDir *= 0.9;
-      if (Math.abs(player.moveDir) < 0.01) player.moveDir = 0;
-    }
-
-    if (dir === -1) player.x -= player.speed * dt;
-    if (dir === 1)  player.x += player.speed * dt;
-
-    player.x = Math.max(player.width/2+10, Math.min(canvas.width-player.width/2-10, player.x));
-
-    const stats = getWeaponStats(player.weaponKey);
-    updateHudWeapon();
-
-    if (player.shotTimer > 0) player.shotTimer -= dt;
-
-    const wantShoot = AUTO_SHOOT || keys.shoot;
-    if (wantShoot && player.shotTimer <= 0) {
-      player.shotTimer = stats.cooldown;
-      const originY = player.y - player.height/2 + 10;
-      const originX = player.x;
-      const pellets = stats.pellets || 1;
-      for (let i=0;i<pellets;i++) {
-        const spread = (pellets===1)?0:(i-(pellets-1)/2)*18;
-        const isSniper = (player.weaponKey === 'sniper');
-        playerBullets.push({
-          x: originX + spread,
-          y: originY,
-          radius: isSniper ? 5 : 4,
-          vx: 0,
-          vy: -stats.bulletSpeed,
-          speed: stats.bulletSpeed,
-          damage: stats.damage,
-          homing: isSniper
-        });
-      }
-      player.shootFlashTimer = 0.08;
-      playShotSound();
-    }
-    if (player.shootFlashTimer > 0) {
-      player.shootFlashTimer -= dt;
-      if (player.shootFlashTimer < 0) player.shootFlashTimer = 0;
-    }
-  }
-
-  function updateEnemies(dt) {
-    for (let i=enemies.length-1;i>=0;i--) {
-      const e = enemies[i];
-      e.x += e.speedX * dt;
-      if (e.x < e.width/2 + 10) { e.x = e.width/2 + 10; e.speedX *= -1; }
-      else if (e.x > canvas.width - e.width/2 - 10) { e.x = canvas.width - e.width/2 - 10; e.speedX *= -1; }
-
-      e.shootTimer -= dt;
-      if (e.shootTimer <= 0) {
-        e.shootTimer = (e.type==='normal') ? (1.3+Math.random()*1.7) : (0.7+Math.random()*1.0);
-        enemyBullets.push({
-          x:e.x,
-          y:e.y + e.height/2 - 10,
-          radius:4,
-          vy: 200 + (e.type==='boss'?80:0),
-          damage:e.damage
-        });
-      }
-      if (e.hitTimer > 0) e.hitTimer -= dt;
-    }
-  }
-
-  function updateBullets(dt) {
-    for (let i=playerBullets.length-1;i>=0;i--) {
-      const b = playerBullets[i];
-      if (b.homing && enemies.length > 0) {
-        let best = null;
-        let bestDist = Infinity;
-        for (const e of enemies) {
-          const dx = e.x - b.x;
-          const dy = e.y - b.y;
-          const d2 = dx*dx + dy*dy;
-          if (d2 < bestDist) {
-            bestDist = d2;
-            best = e;
-          }
-        }
-        if (best) {
-          const dx = best.x - b.x;
-          const dy = best.y - b.y;
-          let len = Math.hypot(dx, dy) || 1;
-          const speed = b.speed || 900;
-          const nx = dx / len;
-          const ny = dy / len;
-          b.vx = nx * speed;
-          b.vy = ny * speed;
-        }
-      }
-      b.x += (b.vx || 0) * dt;
-      b.y += (b.vy || 0) * dt;
-
-      if (b.y < -30 || b.y > canvas.height+30 || b.x < -30 || b.x > canvas.width+30) {
-        playerBullets.splice(i,1);
-      }
-    }
-
-    for (let i=enemyBullets.length-1;i>=0;i--) {
-      const b = enemyBullets[i];
-      b.y += b.vy * dt;
-      if (b.y > canvas.height+20) enemyBullets.splice(i,1);
-    }
-  }
-
-  function rectCircleColliding(circle, rect) {
-    const distX = Math.abs(circle.x - rect.x);
-    const distY = Math.abs(circle.y - rect.y);
-    if (distX > (rect.width/2 + circle.radius)) return false;
-    if (distY > (rect.height/2 + circle.radius)) return false;
-    if (distX <= (rect.width/2)) return true;
-    if (distY <= (rect.height/2)) return true;
-    const dx = distX - rect.width/2;
-    const dy = distY - rect.height/2;
-    return (dx*dx + dy*dy <= circle.radius*circle.radius);
-  }
-
-  function handleCollisions() {
-    for (let i=playerBullets.length-1;i>=0;i--) {
-      const b = playerBullets[i];
-      let hit = false;
-      for (let j=enemies.length-1;j>=0;j--) {
-        const e = enemies[j];
-        if (rectCircleColliding(b, e)) {
-          e.hp -= b.damage;
-          e.hitTimer = 0.12;
-          hit = true;
-          playHitSound();
-          if (e.hp <= 0) {
-            enemies.splice(j,1);
-            playExplosionSound();
-          }
-          break;
-        }
-      }
-      if (hit) playerBullets.splice(i,1);
-    }
-
-    for (let i=enemyBullets.length-1;i>=0;i--) {
-      const b = enemyBullets[i];
-      if (rectCircleColliding(b, player)) {
-        enemyBullets.splice(i,1);
-        player.hp -= b.damage;
-        playHitSound();
-        if (player.hp <= 0) {
-          player.hp = 0; playExplosionSound(); onGameOver(); return;
-        }
-      }
-    }
-
-    for (let i=enemies.length-1;i>=0;i--) {
-      const e = enemies[i];
-      const circ = { x:e.x, y:e.y, radius:Math.max(e.width,e.height)/2 };
-      if (rectCircleColliding(circ, player)) {
-        player.hp -= e.damage*0.7;
-        e.hitTimer = 0.12;
-        enemies.splice(i,1);
-        playHitSound();
-        if (player.hp <= 0) {
-          player.hp = 0; playExplosionSound(); onGameOver(); return;
-        }
-      }
-    }
-
-    if (enemies.length===0 && gameState==='playing') onStageClear();
-  }
-
-  function onStageClear() {
-    if (stage > progress.bestStage) { progress.bestStage = stage; saveProgress(); }
-    showStageClear();
-  }
-  function onGameOver() {
-    if (stage > progress.bestStage) { progress.bestStage = stage; saveProgress(); }
-    showGameOver();
-  }
-
-  // ===== BACKGROUND: SKY SCROLL =====
-  const STAR_COUNT = 60;
-  const stars = [];
-  function initStars() {
-    stars.length = 0;
-    for (let i=0;i<STAR_COUNT;i++) {
-      stars.push({
-        x: Math.random()*canvas.width,
-        y: Math.random()*canvas.height,
-        speed: 25 + Math.random()*40,
-        size: 1 + Math.random()*1.5,
-        alpha: 0.25 + Math.random()*0.5
-      });
-    }
-  }
-  function updateStars(dt) {
-    for (const s of stars) {
-      s.y += s.speed * dt;
-      if (s.y > canvas.height) s.y -= canvas.height;
-    }
-  }
-  function drawBackground() {
-    const grd = ctx.createLinearGradient(0,0,0,canvas.height);
-    grd.addColorStop(0, '#141b3a');
-    grd.addColorStop(0.4,'#050a18');
-    grd.addColorStop(1, '#020309');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    ctx.save();
-    ctx.fillStyle = '#ffffff';
-    for (const s of stars) {
-      ctx.globalAlpha = s.alpha;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  // ===== RENDER =====
-  let globalTime = 0;
-
-  function drawPlayer() {
-    const w = player.width;
-    const h = player.height;
-    const t = globalTime;
-
-    const bob  = Math.sin(t*4)*3;
-    const tilt = player.moveDir * 0.25;
-
-    ctx.save();
-    ctx.translate(player.x, player.y + bob);
-    ctx.rotate(tilt);
-
-    if (isSpriteReady(spritePlayer)) {
-      ctx.drawImage(spritePlayer, -w/2, -h/2, w, h);
-    } else {
-      ctx.fillStyle = '#66ff99';
-      ctx.fillRect(-w/2, -h/2, w, h);
-    }
-
-    if (player.shootFlashTimer > 0) {
-      const k = player.shootFlashTimer / 0.08;
-      ctx.save();
-      ctx.translate(w/2 - 10, -h/2 + 20);
-      ctx.rotate(0.2);
-      const len = 26 * k;
-      const wid = 8  * k;
-      const grd = ctx.createLinearGradient(0,-wid, len,wid);
-      grd.addColorStop(0,'rgba(0,255,255,0.9)');
-      grd.addColorStop(1,'rgba(0,255,255,0)');
-      ctx.fillStyle = grd;
-      ctx.beginPath();
-      ctx.moveTo(0, -wid);
-      ctx.lineTo(len, 0);
-      ctx.lineTo(0, wid);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
-
-    ctx.restore();
-  }
-
-  function spriteForEnemy(e) { return (e.type==='boss'||e.type==='miniBoss') ? spriteBoss : spriteEnemy; }
-
-  function drawEnemies() {
-    const t = globalTime;
-    enemies.forEach(e => {
-      const w = e.width;
-      const h = e.height;
-      const baseBob = (e.type==='boss') ? 5 : 3;
-      const bob  = Math.sin(t*3 + e.bobPhase) * baseBob;
-      const tilt = Math.sin(t*2 + e.bobPhase*1.3) * 0.1;
-      let scale = 1;
-      if (e.type === 'boss')  scale = 1 + Math.sin(t*1.5 + e.bobPhase)*0.03;
-      if (e.hitTimer > 0)     scale *= 1.06;
-
-      ctx.save();
-      ctx.translate(e.x, e.y + bob);
-      ctx.rotate(tilt);
-      ctx.scale(scale, scale);
-
-      const spr = spriteForEnemy(e);
-      if (isSpriteReady(spr)) {
-        ctx.drawImage(spr, -w/2, -h/2, w, h);
-      } else {
-        ctx.fillStyle = e.type==='boss' ? '#ff4b5c' : (e.type==='miniBoss' ? '#ff9f43' : '#4af0ff');
-        ctx.fillRect(-w/2, -h/2, w, h);
-      }
-
-      ctx.restore();
-
-      const barW = w;
-      const barH = 4;
-      const pct = e.hp / e.maxHp;
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.fillRect(e.x - barW/2, e.y - h/2 - 6, barW, barH);
-      ctx.fillStyle = '#3cf06f';
-      ctx.fillRect(e.x - barW/2, e.y - h/2 - 6, barW*pct, barH);
-    });
-  }
-
-  function drawBullets() {
-    ctx.fillStyle = '#ffeb3b';
-    playerBullets.forEach(b => {
-      ctx.beginPath(); ctx.arc(b.x,b.y,b.radius,0,Math.PI*2); ctx.fill();
-    });
-    ctx.fillStyle = '#ff5252';
-    enemyBullets.forEach(b => {
-      ctx.beginPath(); ctx.arc(b.x,b.y,b.radius,0,Math.PI*2); ctx.fill();
-    });
-  }
-
-  function updateHud() {
-    const hpPct = Math.max(0, Math.min(1, player.hp / player.maxHp));
-    hpFill.style.width = (hpPct*100)+'%';
-    hudHpText.textContent = Math.round(player.hp);
-  }
-
-  function drawFrame(dt) {
-    drawBackground();
-    drawPlayer();
-    drawEnemies();
-    drawBullets();
-
-    if (firestormFlashTimer > 0) {
-      const alpha = Math.min(0.5, firestormFlashTimer / 0.25 * 0.5);
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = 'rgba(255,80,0,1)';
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.restore();
-    }
-
-    updateHud();
-  }
-
-  // ===== LOOP =====
-  let lastTime = 0;
-  function loop(ts) {
-    const dt = Math.min(0.033,(ts-lastTime)/1000 || 0);
-    lastTime = ts;
-    globalTime = ts/1000;
-
-    updateStars(dt);
-
-    if (firestormFlashTimer > 0) {
-      firestormFlashTimer -= dt;
-      if (firestormFlashTimer < 0) firestormFlashTimer = 0;
-    }
-
-    if (gameState === 'playing') {
-      updatePlayer(dt);
-      updateEnemies(dt);
-      updateBullets(dt);
-      handleCollisions();
-    }
-
-    drawFrame(dt);
-    requestAnimationFrame(loop);
-  }
-
-  // ===== INIT =====
-  resetPlayer();
-  initStars();
-  updateFirestormHud();
-  updateGoldHud();
-  showMainMenu();
-  requestAnimationFrame(loop);
+  // ===== START GAME =====
+  spawnStage(currentStage);
+  updateUI();
 </script>
-
 </body>
 </html>
