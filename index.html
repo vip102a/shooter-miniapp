@@ -10,26 +10,34 @@
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: radial-gradient(circle at top, #202642 0%, #050712 55%, #020308 100%);
       color: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
+      width: 100%;
+      height: 100vh;
       overflow: hidden;
     }
+
     .game-wrapper {
+      position: fixed;
+      inset: 0;              /* top:0; right:0; bottom:0; left:0 */
       width: 100%;
-      max-width: 420px;
-      aspect-ratio: 9/16;
-      border-radius: 18px;
+      height: 100vh;         /* chiếm toàn bộ khung mini app */
+      max-width: none;
+      border-radius: 0;
       overflow: hidden;
-      box-shadow: 0 16px 40px rgba(0,0,0,0.55);
-      position: relative;
       background:#020308;
     }
+
     #gameCanvas {
       width: 100%;
       height: 100%;
@@ -387,8 +395,8 @@
   const BACKEND     = 'https://backend-yemh.onrender.com';
   const STORAGE_KEY = 'survival_shooter_progress_v5';
 
-  // Production: dùng Stars thật, KHÔNG free nữa
-const DEV_FREE_STARS = false;
+  // Production: dùng Stars thật
+  const DEV_FREE_STARS = false;
 
   const AUTO_SHOOT = true;
   const WEAPON_KEYS = ['pistol','rifle','shotgun','sniper'];
@@ -807,14 +815,14 @@ const DEV_FREE_STARS = false;
     shopReturnMode = 'menu';
     overlay.innerHTML = `
       <h1>🎮 Survival Shooter</h1>
-      <p>Dùng Telegram Stars để mua Gold, rồi dùng Gold mua vật phẩm.</p>
+      <p>Game bắn súng sinh tồn. Dùng Telegram Stars để mua Gold, sau đó dùng Gold mua vật phẩm và nâng cấp vũ khí.</p>
       <p style="font-size:13px;opacity:0.9">
         <b>PC:</b> A/D di chuyển, auto-bắn. Nhấn <b>Q</b> hoặc nút súng để đổi vũ khí.<br/>
         <b>Điện thoại:</b> Vuốt trên màn hình để di chuyển, ngón thứ 2 bấm súng / Bão lửa.
       </p>
       <button id="btnStartGame">Bắt đầu ải 1</button>
       <button id="btnOpenShopFromMenu" class="secondary">🛒 Mở Shop</button>
-      <small>⭐ Stars → Gold, 🪙 Gold → mua vật phẩm. Khi chạy thật, hãy tắt chế độ DEV_FREE_STARS.</small>
+      <small>Tip: 1⭐ ≈ 10 Gold. Bạn có thể mua Stars bằng Ton / tiền trong ví Telegram.</small>
     `;
     overlay.style.display = 'flex';
     document.getElementById('btnStartGame').onclick = () => { ensureAudio(); startGame(); };
@@ -1147,7 +1155,7 @@ const DEV_FREE_STARS = false;
               class="secondary"
               data-pack-id="${pack.id}"
               style="padding:6px 10px;border-radius:999px;font-size:12px;">
-              ${DEV_FREE_STARS ? 'Mua (DEV FREE)' : 'Mua bằng Stars'}
+              Mua bằng Stars
             </button>
           </div>
         </div>
@@ -1257,7 +1265,7 @@ const DEV_FREE_STARS = false;
 
       <button id="btnBackFromShop" class="secondary">⬅ Quay lại</button>
       <small id="shopStatusText" style="margin-top:4px;">
-        ${DEV_FREE_STARS ? 'Hiện tại: DEV_FREE_STARS = true (mua Gold không tốn Stars).' : 'Tip: Nên mua Gold gói lớn để giảm số lần thanh toán.'}
+        Dùng Stars để mua Gold, sau đó dùng Gold để mua vật phẩm trong game.
       </small>
     `;
     overlay.style.display = 'flex';
