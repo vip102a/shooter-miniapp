@@ -606,7 +606,7 @@
   const btnShoot      = document.getElementById('btnShoot');
   const firestormLabel= document.getElementById('firestormCountLabel');
 
-  const keys = { left: false, right: false, shoot: false };
+  const keys = { left: false, right: false, up: false, down: false, shoot: false };
 
   const BASE_ENEMY_HP    = 30;
   const BASE_ENEMY_DMG   = 8;
@@ -650,48 +650,179 @@
     return img && img.complete && img.naturalWidth > 0;
   }
 
-  // ===== AUDIO =====
+  // ===== AUDIO (mới, súng trầm hơn + thêm SFX) =====
   let audioCtx = null;
+  let masterGain = null;
   let audioEnabled = true;
+
   function ensureAudio() {
     if (!audioEnabled) return;
     if (!audioCtx) {
-      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-      catch (e) { audioEnabled = false; }
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.7;
+        masterGain.connect(audioCtx.destination);
+      } catch (e) {
+        audioEnabled = false;
+      }
     }
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   }
-  function playTone(freq, duration, type, gainValue) {
-    if (!audioEnabled || !audioCtx) return;
-    const osc  = audioCtx.createOscillator();
+
+  function playTone(freq, duration, type = 'sine', gainValue = 0.3) {
+    if (!audioEnabled || !audioCtx || !masterGain) return;
+    const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = type || 'square';
+    osc.type = type;
     osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.connect(gain);
+    gain.connect(masterGain);
     const now = audioCtx.currentTime;
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(gainValue || 0.2, now + 0.01);
+    gain.gain.linearRampToValueAtTime(gainValue, now + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     osc.start(now);
     osc.stop(now + duration + 0.05);
   }
-  function playShotSound()      { ensureAudio(); if (!audioCtx) return; playTone(900, 0.08, 'square', 0.22); }
-  function playHitSound()       { ensureAudio(); if (!audioCtx) return; playTone(500, 0.05, 'sawtooth', 0.18); }
-  function playClickSound()     { ensureAudio(); if (!audioCtx) return; playTone(700, 0.04, 'triangle', 0.12); }
-  function playExplosionSound() {
-    ensureAudio(); if (!audioCtx) return;
-    const bufferSize = audioCtx.sampleRate * 0.25;
+
+  function playNoise(duration = 0.15, volume = 0.3) {
+    if (!audioEnabled || !audioCtx || !masterGain) return;
+    const bufferSize = audioCtx.sampleRate * duration;
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data   = buffer.getChannelData(0);
-    for (let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1)*(1-i/bufferSize);
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = buffer;
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random()*2 - 1) * (1 - i/bufferSize);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
     const gain = audioCtx.createGain();
-    noise.connect(gain); gain.connect(audioCtx.destination);
+    src.connect(gain);
+    gain.connect(masterGain);
     const now = audioCtx.currentTime;
-    gain.gain.setValueAtTime(0.35, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now+0.25);
-    noise.start(now); noise.stop(now+0.26);
+    gain.gain.setValueAtTime(volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    src.start(now);
+    src.stop(now + duration + 0.05);
+  }
+
+  function playSweep(startFreq, endFreq, duration = 0.2, type = 'sawtooth', volume = 0.3) {
+    if (!audioEnabled || !audioCtx || !masterGain) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    const now = audioCtx.currentTime;
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.linearRampToValueAtTime(endFreq, now + duration);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    osc.start(now);
+    osc.stop(now + duration + 0.05);
+  }
+
+  // Click UI
+  function playClickSound() {
+    ensureAudio();
+    if (!audioCtx || !audioEnabled) return;
+    playTone(800, 0.05, 'triangle', 0.15);
+  }
+
+  // Súng: dùng tiếng súng ban đầu, nhưng trầm hơn + bớt chói
+  function playShotSound() {
+    ensureAudio();
+    if (!audioCtx || !audioEnabled) return;
+    // tiếng "bụp" + một chút noise
+    playNoise(0.04, 0.25);
+    playTone(420, 0.06, 'square', 0.18);
+  }
+
+  // Hit (đạn trúng mục tiêu)
+  function playHitSound() {
+    ensureAudio();
+    if (!audioCtx || !audioEnabled) return;
+    playTone(500, 0.05, 'sawtooth', 0.18);
+  }
+
+  // Nổ mạnh (dùng cho firestorm / boss chết phụ)
+  function playExplosionSound() {
+    ensureAudio();
+    if (!audioCtx || !audioEnabled) return;
+    playNoise(0.25, 0.35);
+    playSweep(220, 80, 0.25, 'triangle', 0.28);
+  }
+
+  // Player trúng đạn (giống file sound test: kiểu "ợ" nam)
+  function sfxPlayerHit() {
+    ensureAudio();
+    if (!audioCtx || !audioEnabled) return;
+    playSweep(260, 140, 0.18, 'triangle', 0.35);
+    setTimeout(() => {
+      playTone(110, 0.08, 'sine', 0.25);
+    }, 120);
+  }
+
+  // Quái nhỏ chết
+  function sfxEnemyDieSmall() {
+    ensureAudio();
+    if (!audioCtx || !audioEnabled) return;
+    // chút "rên" + noise nhẹ
+    playSweep(650, 900, 0.12, 'sawtooth', 0.32);
+    setTimeout(() => playNoise(0.07, 0.2), 40);
+  }
+
+  // Boss chết
+  function sfxBossDie() {
+    ensureAudio();
+    if (!audioCtx || !audioEnabled) return;
+    playSweep(620, 980, 0.22, 'triangle', 0.36);
+    setTimeout(() => {
+      playTone(700, 0.22, 'sine', 0.3);
+    }, 160);
+    setTimeout(() => playNoise(0.18, 0.26), 130);
+  }
+
+  // Clear stage: cười vui
+  function sfxStageClearLaugh() {
+    ensureAudio();
+    if (!audioCtx || !audioEnabled) return;
+    const pattern = [
+      { f: 380, d: 0.09 },
+      { f: 520, d: 0.09 },
+      { f: 660, d: 0.12 },
+      { f: 580, d: 0.12 },
+      { f: 720, d: 0.16 }
+    ];
+    let delay = 0;
+    pattern.forEach(note => {
+      setTimeout(() => playTone(note.f, note.d, 'square', 0.32), delay);
+      delay += note.d * 650;
+    });
+  }
+
+  // Game over: cười chế nhạo hơn
+  function sfxGameOverTease() {
+    ensureAudio();
+    if (!audioCtx || !audioEnabled) return;
+    const groups = [
+      { freqs: [760, 840, 880], gap: 55 },
+      { freqs: [800, 880, 920], gap: 55 },
+      { freqs: [840, 920, 960], gap: 55 }
+    ];
+    let baseDelay = 0;
+    groups.forEach(g => {
+      g.freqs.forEach((f, idx) => {
+        setTimeout(() => playTone(f, 0.07, 'square', 0.3), baseDelay + idx*g.gap);
+      });
+      setTimeout(() => playSweep(g.freqs[g.freqs.length-1],
+                                 g.freqs[g.freqs.length-1] + 140,
+                                 0.09,'triangle',0.28),
+                 baseDelay + g.freqs.length*g.gap + 20);
+      baseDelay += g.freqs.length*g.gap + 140;
+    });
+    setTimeout(() => playSweep(780, 360, 0.42, 'sawtooth', 0.3), baseDelay + 80);
   }
 
   // ===== UTIL HUD =====
@@ -817,8 +948,8 @@
       <h1>🎮 Survival Shooter</h1>
       <p>Game bắn súng sinh tồn. Dùng Telegram Stars để mua Gold, sau đó dùng Gold mua vật phẩm và nâng cấp vũ khí.</p>
       <p style="font-size:13px;opacity:0.9">
-        <b>PC:</b> A/D di chuyển, auto-bắn. Nhấn <b>Q</b> hoặc nút súng để đổi vũ khí.<br/>
-        <b>Điện thoại:</b> Vuốt trên màn hình để di chuyển, ngón thứ 2 bấm súng / Bão lửa.
+        <b>PC:</b> WASD / phím mũi tên để di chuyển, auto-bắn. Nhấn <b>Q</b> hoặc nút súng để đổi vũ khí.<br/>
+        <b>Điện thoại:</b> Vuốt trên màn hình (kéo nhân vật) để di chuyển tự do, nút 🔥 để dùng Bão lửa.
       </p>
       <button id="btnStartGame">Bắt đầu ải 1</button>
       <button id="btnOpenShopFromMenu" class="secondary">🛒 Mở Shop</button>
@@ -1401,8 +1532,10 @@
 
   // ===== INPUT: KEYBOARD =====
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+    if (e.code === 'ArrowLeft'  || e.code === 'KeyA') keys.left  = true;
     if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+    if (e.code === 'ArrowUp'    || e.code === 'KeyW') keys.up    = true;
+    if (e.code === 'ArrowDown'  || e.code === 'KeyS') keys.down  = true;
 
     if (e.code === 'KeyQ') {
       cycleWeapon();
@@ -1412,54 +1545,78 @@
     else if (gameState==='gameOver' && e.code==='Enter') { ensureAudio(); startGame(); }
   });
   window.addEventListener('keyup', (e) => {
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+    if (e.code === 'ArrowLeft'  || e.code === 'KeyA') keys.left  = false;
     if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+    if (e.code === 'ArrowUp'    || e.code === 'KeyW') keys.up    = false;
+    if (e.code === 'ArrowDown'  || e.code === 'KeyS') keys.down  = false;
   });
 
-  // ===== INPUT: TOUCH / DRAG =====
+  // ===== INPUT: TOUCH / DRAG (2D di chuyển) =====
   let isDragging = false;
-  function pointerToCanvasX(ev) {
+  function pointerToCanvasPos(ev) {
     const rect = canvas.getBoundingClientRect();
-    return (ev.clientX - rect.left) * (canvas.width / rect.width);
+    const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
+    return { x, y };
   }
 
   canvas.addEventListener('pointerdown', (ev) => {
     ensureAudio();
     isDragging = true;
-    const x = pointerToCanvasX(ev);
-    const clamped = Math.max(player.width/2+10, Math.min(canvas.width-player.width/2-10, x));
-    const dir = Math.sign(clamped - player.x);
-    if (dir !== 0) player.moveDir = dir;
-    player.x = clamped;
+    const pos = pointerToCanvasPos(ev);
+    movePlayerToPointer(pos);
   });
   canvas.addEventListener('pointermove', (ev) => {
     if (!isDragging) return;
-    const x = pointerToCanvasX(ev);
-    const clamped = Math.max(player.width/2+10, Math.min(canvas.width-player.width/2-10, x));
-    const dir = Math.sign(clamped - player.x);
-    if (dir !== 0) player.moveDir = dir;
-    player.x = clamped;
+    const pos = pointerToCanvasPos(ev);
+    movePlayerToPointer(pos);
   });
   canvas.addEventListener('pointerup',   () => { isDragging = false; });
   canvas.addEventListener('pointerleave',() => { isDragging = false; });
 
+  function movePlayerToPointer(pos) {
+    const minX = player.width/2+10;
+    const maxX = canvas.width-player.width/2-10;
+    const minY = canvas.height*0.35;   // hạn chế lên quá cao
+    const maxY = canvas.height-60;
+
+    const targetX = Math.max(minX, Math.min(maxX, pos.x));
+    const targetY = Math.max(minY, Math.min(maxY, pos.y));
+
+    const dx = targetX - player.x;
+    const dy = targetY - player.y;
+    const dirX = Math.sign(dx);
+    if (dirX !== 0) player.moveDir = dirX;
+
+    player.x = targetX;
+    player.y = targetY;
+  }
+
   // ===== GAME UPDATE =====
   function updatePlayer(dt) {
-    let dir = 0;
-    if (keys.left && !keys.right) dir = -1;
-    else if (keys.right && !keys.left) dir = 1;
+    let dirX = 0, dirY = 0;
+    if (keys.left && !keys.right)  dirX = -1;
+    else if (keys.right && !keys.left) dirX = 1;
+    if (keys.up && !keys.down)     dirY = -1;
+    else if (keys.down && !keys.up) dirY = 1;
 
-    if (dir !== 0) {
-      player.moveDir = dir;
+    if (dirX !== 0) {
+      player.moveDir = dirX;
     } else {
       player.moveDir *= 0.9;
       if (Math.abs(player.moveDir) < 0.01) player.moveDir = 0;
     }
 
-    if (dir === -1) player.x -= player.speed * dt;
-    if (dir === 1)  player.x += player.speed * dt;
+    const speed = player.speed;
+    player.x += dirX * speed * dt;
+    player.y += dirY * speed * dt;
 
-    player.x = Math.max(player.width/2+10, Math.min(canvas.width-player.width/2-10, player.x));
+    const minX = player.width/2+10;
+    const maxX = canvas.width-player.width/2-10;
+    const minY = canvas.height*0.35;
+    const maxY = canvas.height-60;
+    player.x = Math.max(minX, Math.min(maxX, player.x));
+    player.y = Math.max(minY, Math.min(maxY, player.y));
 
     const stats = getWeaponStats(player.weaponKey);
     updateHudWeapon();
@@ -1571,6 +1728,7 @@
   }
 
   function handleCollisions() {
+    // Đạn player -> quái
     for (let i=playerBullets.length-1;i>=0;i--) {
       const b = playerBullets[i];
       let hit = false;
@@ -1582,8 +1740,13 @@
           hit = true;
           playHitSound();
           if (e.hp <= 0) {
+            const type = e.type;
             enemies.splice(j,1);
-            playExplosionSound();
+            if (type === 'boss' || type === 'miniBoss') {
+              sfxBossDie();
+            } else {
+              sfxEnemyDieSmall();
+            }
           }
           break;
         }
@@ -1591,18 +1754,23 @@
       if (hit) playerBullets.splice(i,1);
     }
 
+    // Đạn quái -> player
     for (let i=enemyBullets.length-1;i>=0;i--) {
       const b = enemyBullets[i];
       if (rectCircleColliding(b, player)) {
         enemyBullets.splice(i,1);
         player.hp -= b.damage;
-        playHitSound();
+        sfxPlayerHit();
         if (player.hp <= 0) {
-          player.hp = 0; playExplosionSound(); onGameOver(); return;
+          player.hp = 0;
+          playExplosionSound();
+          onGameOver();
+          return;
         }
       }
     }
 
+    // Va chạm thân quái -> player
     for (let i=enemies.length-1;i>=0;i--) {
       const e = enemies[i];
       const circ = { x:e.x, y:e.y, radius:Math.max(e.width,e.height)/2 };
@@ -1610,9 +1778,12 @@
         player.hp -= e.damage*0.7;
         e.hitTimer = 0.12;
         enemies.splice(i,1);
-        playHitSound();
+        sfxPlayerHit();
         if (player.hp <= 0) {
-          player.hp = 0; playExplosionSound(); onGameOver(); return;
+          player.hp = 0;
+          playExplosionSound();
+          onGameOver();
+          return;
         }
       }
     }
@@ -1622,10 +1793,13 @@
 
   function onStageClear() {
     if (stage > progress.bestStage) { progress.bestStage = stage; saveProgress(); }
+    sfxStageClearLaugh();
+    spawnFireworks();
     showStageClear();
   }
   function onGameOver() {
     if (stage > progress.bestStage) { progress.bestStage = stage; saveProgress(); }
+    sfxGameOverTease();
     showGameOver();
   }
 
@@ -1665,6 +1839,56 @@
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
       ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ===== FIREWORKS (pháo hoa khi clear) =====
+  let fireworks = [];
+  function spawnFireworks() {
+    fireworks = [];
+    for (let i = 0; i < 7; i++) {
+      const cx = Math.random() * canvas.width;
+      const cy = 180 + Math.random() * 120;
+      const particles = [];
+      for (let j = 0; j < 30; j++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 80 + Math.random()*120;
+        particles.push({
+          x: cx,
+          y: cy,
+          vx: Math.cos(angle)*speed,
+          vy: Math.sin(angle)*speed,
+          alpha: 1
+        });
+      }
+      fireworks.push({ life: 1.2, particles });
+    }
+    playExplosionSound();
+  }
+
+  function updateFireworks(dt) {
+    for (const fw of fireworks) {
+      fw.life -= dt;
+      for (const p of fw.particles) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 10 * dt;
+        p.alpha -= dt * 1.2;
+      }
+      fw.particles = fw.particles.filter(p => p.alpha > 0);
+    }
+    fireworks = fireworks.filter(fw => fw.life > 0 && fw.particles.length > 0);
+  }
+
+  function drawFireworks() {
+    ctx.save();
+    for (const fw of fireworks) {
+      for (const p of fw.particles) {
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = '#ffdd55';
+        ctx.fillRect(p.x, p.y, 3, 3);
+      }
     }
     ctx.restore();
   }
@@ -1775,6 +1999,7 @@
     drawPlayer();
     drawEnemies();
     drawBullets();
+    drawFireworks();
 
     if (firestormFlashTimer > 0) {
       const alpha = Math.min(0.5, firestormFlashTimer / 0.25 * 0.5);
@@ -1796,6 +2021,7 @@
     globalTime = ts/1000;
 
     updateStars(dt);
+    updateFireworks(dt);
 
     if (firestormFlashTimer > 0) {
       firestormFlashTimer -= dt;
