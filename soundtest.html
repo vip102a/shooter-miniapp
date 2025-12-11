@@ -1,224 +1,462 @@
-// server.js
-const express = require('express');
-const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
-const bodyParser = require('body-parser');
-const cors = require('cors');
-
-const app = express();
-
-app.use(cors());
-app.use(bodyParser.json());
-
-// ================== CONFIG ==================
-const BOT_TOKEN = process.env.BOT_TOKEN;
-if (!BOT_TOKEN) {
-  console.error('❌ MISSING BOT_TOKEN env var!');
-}
-const TELEGRAM_API = BOT_TOKEN
-  ? `https://api.telegram.org/bot${BOT_TOKEN}`
-  : null;
-
-// 👉 THÊM: URL 2 mini app (có thể chỉnh lại nếu sau này đổi domain)
-const LUCKY_URL   = process.env.LUCKY_URL   || 'https://frontend-sigma-plum-47.vercel.app/';
-const SHOOTER_URL = process.env.SHOOTER_URL || 'https://shooter-miniapp.vercel.app/';
-
-console.log('LUCKY_URL   =', LUCKY_URL);
-console.log('SHOOTER_URL =', SHOOTER_URL);
-
-// ================== HEALTH CHECK ==================
-app.get('/', (req, res) => {
-  res.send('Telegram Stars backend is running');
-});
-
-// ================== CREATE INVOICE ==================
-app.post('/api/create-invoice', async (req, res) => {
-  try {
-    if (!BOT_TOKEN || !TELEGRAM_API) {
-      return res.json({
-        ok: false,
-        error: 'Server chưa cấu hình BOT_TOKEN (env BOT_TOKEN).'
-      });
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Survival Shooter – Sound Test</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      padding:16px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #202642 0%, #050712 55%, #020308 100%);
+      color:#fff;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
     }
-
-    const {
-      title = 'Lucky Box',
-      description = 'Mua 1 Lucky Box để nhận phần thưởng digital',
-      price_stars = 50,  // số Stars
-      payload
-    } = req.body;
-
-    const amount = Number(price_stars) || 0;
-    if (amount <= 0) {
-      return res.json({ ok: false, error: 'Giá Stars không hợp lệ.' });
+    h1 {
+      margin-top:8px;
+      margin-bottom:4px;
+      font-size:22px;
     }
-
-    // CHÚ Ý: KHÔNG gửi provider_token với Stars (theo changelog Telegram)
-    const body = {
-      title,
-      description,
-      payload: payload || ('p' + Date.now()),
-      currency: 'XTR', // Telegram Stars
-      prices: [
-        {
-          label: title || 'Lucky Box',
-          amount: amount // 50 Stars => 50
-        }
-      ]
-    };
-
-    const resp = await fetch(`${TELEGRAM_API}/createInvoiceLink`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-
-    const j = await resp.json();
-    console.log('== createInvoiceLink response ==', j);
-
-    if (!j.ok) {
-      return res.json({
-        ok: false,
-        error: j.description || 'Telegram createInvoiceLink error',
-        raw_response: j
-      });
+    p {
+      margin:0 0 12px;
+      font-size:13px;
+      opacity:0.9;
+      text-align:center;
     }
+    .panel {
+      width:100%;
+      max-width:420px;
+      background:rgba(0,0,0,0.5);
+      border-radius:16px;
+      padding:12px;
+      margin-top:10px;
+      box-shadow:0 10px 30px rgba(0,0,0,0.6);
+    }
+    .panel-title {
+      font-size:14px;
+      font-weight:600;
+      margin-bottom:8px;
+      opacity:0.9;
+    }
+    .btn-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:8px;
+    }
+    button {
+      border:none;
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:13px;
+      cursor:pointer;
+      background:#ffb100;
+      color:#201317;
+      font-weight:600;
+      box-shadow:0 6px 16px rgba(0,0,0,0.5);
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+    }
+    button.secondary {
+      background:rgba(255,255,255,0.08);
+      color:#fff;
+      box-shadow:none;
+    }
+    button:active {
+      transform:scale(0.96);
+    }
+    small {
+      font-size:11px;
+      opacity:0.75;
+    }
+    .footer {
+      margin-top:18px;
+      font-size:11px;
+      opacity:0.7;
+      text-align:center;
+      max-width:420px;
+    }
+    .volume-row {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:4px;
+    }
+    input[type="range"] {
+      flex:1;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔊 Survival Shooter – Sound Test</h1>
+  <p>
+    Nhấn từng nút để nghe thử âm thanh sẽ dùng trong game.<br/>
+    Tất cả đều là âm tổng hợp bằng Web Audio (không dùng file giọng thật, không bản quyền).
+  </p>
 
-    return res.json({
-      ok: true,
-      invoiceLink: j.result
-    });
+  <div class="panel">
+    <div class="panel-title">⚙️ Audio Control</div>
+    <div class="btn-row">
+      <button id="btnInitAudio">Bật Audio (unmute)</button>
+      <button id="btnStopAudio" class="secondary">Ngắt mọi âm</button>
+    </div>
+    <div class="volume-row">
+      <span>🔉 Volume</span>
+      <input id="volumeSlider" type="range" min="0" max="100" value="70" />
+      <span id="volumeLabel">70%</span>
+    </div>
+    <small>Trên iOS / mobile, bạn thường phải bấm 1 nút mới nghe được âm thanh.</small>
+  </div>
 
-  } catch (e) {
-    console.error('ERROR /api/create-invoice:', e);
-    return res.json({ ok: false, error: e.message });
-  }
-});
+  <div class="panel">
+    <div class="panel-title">🧍 Player – Giọng nam</div>
+    <div class="btn-row">
+      <button id="btnPlayerHit">🩸 Player bị trúng đạn</button>
+      <button id="btnStageClearVoice">😄 Thắng màn (cười)</button>
+    </div>
+  </div>
 
-// ================== DELIVER REWARD (giản lược) ==================
-app.post('/api/deliver', async (req, res) => {
-  try {
-    const { payload } = req.body;
-    console.log('Deliver reward for payload:', payload);
+  <div class="panel">
+    <div class="panel-title">👾 Enemy / Boss – Giọng nữ kiểu anime</div>
+    <div class="btn-row">
+      <button id="btnEnemyDie">💥 Quái nhỏ chết</button>
+      <button id="btnBossDie">🔥 Boss chết</button>
+    </div>
+  </div>
 
-    const rewardCode =
-      'LUCKY-' + Math.random().toString(36).slice(2, 10).toUpperCase();
+  <div class="panel">
+    <div class="panel-title">💀 Game Over – Giọng nữ trêu nhẹ</div>
+    <div class="btn-row">
+      <button id="btnGameOverVoice">😏 Game Over (chế nhẹ)</button>
+    </div>
+  </div>
 
-    // Ở bản đơn giản: tin tưởng status "paid" từ openInvoice hoặc webhook
-    return res.json({
-      ok: true,
-      reward: rewardCode
-    });
-  } catch (e) {
-    console.error('ERROR /api/deliver:', e);
-    return res.json({ ok: false, error: e.message });
-  }
-});
+  <div class="panel">
+    <div class="panel-title">💣 SFX thêm (để tham khảo)</div>
+    <div class="btn-row">
+      <button id="btnShot">🔫 Tiếng súng</button>
+      <button id="btnExplosion">💣 Tiếng nổ</button>
+      <button id="btnHit">💢 Hit impact</button>
+    </div>
+    <small>Đây là các hiệu ứng đã/đang dùng trong game chính, để bạn so sánh.</small>
+  </div>
 
-// ================== WEBHOOK ==================
-app.post('/webhook', async (req, res) => {
-  try {
-    const upd = req.body;
-    console.log('== WEBHOOK RECEIVED ==', JSON.stringify(upd, null, 2));
+  <div class="footer">
+    Sau khi bạn ưng âm thanh, mình sẽ gắn cùng 1 hệ thống Web Audio này vào <b>index.html</b>,
+    gọi đúng effect ở các sự kiện: trúng đạn, quái/boss chết, thắng màn, thua game, v.v.
+  </div>
 
-    // Trả 200 ngay
-    res.sendStatus(200);
+<script>
+  // ====== Web Audio setup ======
+  let audioCtx = null;
+  let masterGain = null;
+  let audioEnabled = false;
 
-    if (!BOT_TOKEN || !TELEGRAM_API) return;
-
-    // 1) Pre-checkout: BẮT BUỘC phải trả lời
-    if (upd.pre_checkout_query) {
-      const id = upd.pre_checkout_query.id;
-
-      await fetch(`${TELEGRAM_API}/answerPreCheckoutQuery`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pre_checkout_query_id: id,
-          ok: true
-          // Nếu muốn từ chối: ok:false, error_message:'Hết hàng...'
-        })
-      });
-
-      console.log('>> PRE CHECKOUT ACCEPTED:', id);
+  function initAudio() {
+    if (audioCtx) {
+      // Resume nếu đang suspended
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      audioEnabled = true;
       return;
     }
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.7;
+      masterGain.connect(audioCtx.destination);
+      audioEnabled = true;
+      console.log('[Audio] Initialized');
+    } catch (e) {
+      console.error('Audio init error:', e);
+      audioEnabled = false;
+      alert('Trình duyệt không hỗ trợ Web Audio đầy đủ.');
+    }
+  }
 
-    // 2) Payment thành công (telegram gửi successful_payment)
-    if (upd.message && upd.message.successful_payment) {
-      const payment = upd.message.successful_payment;
-      console.log('>> PAYMENT SUCCESS (via webhook):', payment);
+  function setMasterVolume(v) {
+    if (!masterGain) return;
+    masterGain.gain.value = v;
+  }
 
-      const chatId = upd.message.chat.id;
+  function stopAllAudio() {
+    if (!audioCtx) return;
+    audioCtx.close().then(() => {
+      audioCtx = null;
+      masterGain = null;
+      audioEnabled = false;
+      console.log('[Audio] Context closed');
+    }).catch(e => {
+      console.error(e);
+    });
+  }
 
-      // Thông báo cho user (tuỳ thích)
-      await fetch(`${TELEGRAM_API}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: 'Thanh toán Stars thành công! Bạn sẽ nhận phần thưởng trong Mini App.'
-        })
+  function playWithMaster(node, duration) {
+    if (!audioEnabled || !audioCtx || !masterGain) return;
+    node.connect(masterGain);
+    node.start();
+    if (duration) {
+      node.stop(audioCtx.currentTime + duration + 0.05);
+    }
+  }
+
+  // ====== Basic tone helpers (không bản quyền) ======
+  function playTone(freq, duration, opts = {}) {
+    if (!audioEnabled || !audioCtx || !masterGain) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    const now = audioCtx.currentTime;
+    const type = opts.type || 'sine';
+    const vol  = opts.volume != null ? opts.volume : 0.4;
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.start(now);
+    osc.stop(now + duration + 0.05);
+  }
+
+  function playSweep(startFreq, endFreq, duration, opts = {}) {
+    if (!audioEnabled || !audioCtx || !masterGain) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const now = audioCtx.currentTime;
+
+    const type = opts.type || 'sawtooth';
+    const vol  = opts.volume != null ? opts.volume : 0.35;
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.linearRampToValueAtTime(endFreq, now + duration);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.start(now);
+    osc.stop(now + duration + 0.05);
+  }
+
+  function playNoise(duration, opts = {}) {
+    if (!audioEnabled || !audioCtx || !masterGain) return;
+    const bufferSize = audioCtx.sampleRate * duration;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+
+    const gain = audioCtx.createGain();
+    const now = audioCtx.currentTime;
+    const vol = opts.volume != null ? opts.volume : 0.4;
+
+    src.connect(gain);
+    gain.connect(masterGain);
+
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    src.start(now);
+    src.stop(now + duration + 0.05);
+  }
+
+  // ====== PLAYER: HIT (giọng nam kiểu "uugh") ======
+  function sfxPlayerHit() {
+    if (!audioEnabled) initAudio();
+    if (!audioEnabled) return;
+    const now = audioCtx.currentTime;
+
+    // Phần 1: sweep xuống – nghe như "uugh"
+    playSweep(220, 120, 0.18, { type: 'triangle', volume: 0.45 });
+
+    // Phần 2: 1 nốt trầm ngắn ở cuối
+    setTimeout(() => {
+      playTone(90, 0.08, { type: 'sine', volume: 0.35 });
+    }, 130);
+  }
+
+  // ====== PLAYER: STAGE CLEAR (cười sảng khoái, synth) ======
+  function sfxStageClearLaugh() {
+    if (!audioEnabled) initAudio();
+    if (!audioEnabled) return;
+
+    const pattern = [
+      { f: 380, d: 0.09 },
+      { f: 520, d: 0.09 },
+      { f: 660, d: 0.12 },
+      { f: 580, d: 0.12 },
+      { f: 720, d: 0.16 },
+    ];
+
+    let delay = 0;
+    pattern.forEach((note) => {
+      setTimeout(() => {
+        playTone(note.f, note.d, { type: 'square', volume: 0.38 });
+      }, delay);
+      delay += note.d * 700;
+    });
+  }
+
+  // ====== ENEMY DIE (Nữ anime nhẹ: "hự") ======
+  function sfxEnemyDie() {
+    if (!audioEnabled) initAudio();
+    if (!audioEnabled) return;
+
+    // Sweep lên nhẹ, ngắn (cao → anime nữ), rồi tắt nhanh
+    playSweep(650, 900, 0.12, { type: 'sawtooth', volume: 0.35 });
+
+    // Thêm chút noise nhỏ để có cảm giác "vỡ" khi chết
+    setTimeout(() => {
+      playNoise(0.08, { volume: 0.22 });
+    }, 40);
+  }
+
+  // ====== BOSS DIE (Nữ anime, kêu "á" dài hơn, drama) ======
+  function sfxBossDie() {
+    if (!audioEnabled) initAudio();
+    if (!audioEnabled) return;
+    const now = audioCtx.currentTime;
+
+    // Phần 1: sweep lên (tiếng "á" bắt đầu)
+    playSweep(620, 980, 0.22, { type: 'triangle', volume: 0.4 });
+
+    // Phần 2: rung nhẹ + hạ tông, tạo cảm giác "ngân"
+    setTimeout(() => {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+
+      // vibrato
+      osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+      osc.frequency.linearRampToValueAtTime(480, audioCtx.currentTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      const g = gain.gain;
+      const t0 = audioCtx.currentTime;
+      g.setValueAtTime(0.0001, t0);
+      g.linearRampToValueAtTime(0.32, t0 + 0.02);
+      g.exponentialRampToValueAtTime(0.0001, t0 + 0.38);
+
+      osc.start(t0);
+      osc.stop(t0 + 0.42);
+    }, 180);
+
+    // Một chút noise cho hiệu ứng chết boss
+    setTimeout(() => {
+      playNoise(0.18, { volume: 0.26 });
+    }, 130);
+  }
+
+  // ====== GAME OVER (Nữ cười trêu nhẹ, không thô tục) ======
+  function sfxGameOverTease() {
+    if (!audioEnabled) initAudio();
+    if (!audioEnabled) return;
+
+    // Chuỗi "tee-hee" synth: cao, hơi lảnh, chơi 3 cụm
+    const laughs = [
+      { freqs: [720, 840], dur: 0.07 },
+      { freqs: [760, 880], dur: 0.08 },
+      { freqs: [820, 900], dur: 0.09 },
+    ];
+
+    let baseDelay = 0;
+    laughs.forEach(({ freqs, dur }) => {
+      freqs.forEach((f, idx) => {
+        setTimeout(() => {
+          playTone(f, dur, { type: 'square', volume: 0.33 });
+        }, baseDelay + idx * (dur * 600));
       });
+      baseDelay += dur * 700 + 40;
+    });
 
-      // Ở đây bạn có thể lưu payment vào DB, v.v.
-      return;
-    }
-
-    // 3) Xử lý /start -> gửi menu 2 mini app
-    if (upd.message && upd.message.text) {
-      const chatId = upd.message.chat.id;
-      const text = (upd.message.text || '').trim();
-
-      if (text === '/start' || text.toLowerCase() === 'start') {
-        const menuText =
-          'Chào bạn! Hãy chọn mini app muốn mở:\n\n' +
-          '🎁 Lucky Box – Mở hộp quà nhận phần thưởng digital.\n' +
-          '🔫 Survival Shooter – Game bắn súng sinh tồn, dùng Stars mua Gold & nâng cấp vũ khí.';
-
-        const replyMarkup = {
-          inline_keyboard: [
-            [
-              {
-                text: '🎁 Lucky Box',
-                web_app: { url: LUCKY_URL }
-              }
-            ],
-            [
-              {
-                text: '🔫 Survival Shooter',
-                web_app: { url: SHOOTER_URL }
-              }
-            ]
-          ]
-        };
-
-        await fetch(`${TELEGRAM_API}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: menuText,
-            reply_markup: replyMarkup
-          })
-        });
-
-        console.log('>> SENT START MENU to chat', chatId);
-        return;
-      }
-    }
-
-    // các loại update khác: bỏ qua
-
-  } catch (e) {
-    console.error('ERROR /webhook:', e);
+    // Kết thúc bằng 1 nốt lượn xuống (giống tiếng "hmmm~" trêu)
+    setTimeout(() => {
+      playSweep(600, 360, 0.22, { type: 'triangle', volume: 0.28 });
+    }, baseDelay + 60);
   }
-});
 
-// ================== START SERVER ==================
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log('Server listening on PORT =>', PORT);
-  if (BOT_TOKEN) {
-    console.log('BOT_TOKEN prefix =', BOT_TOKEN.slice(0, 10) + '***');
+  // ====== SFX THÊM: SHOT, EXPLOSION, HIT ======
+  function sfxShot() {
+    if (!audioEnabled) initAudio();
+    if (!audioEnabled) return;
+    playTone(900, 0.08, { type:'square', volume:0.35 });
   }
-});
+
+  function sfxHit() {
+    if (!audioEnabled) initAudio();
+    if (!audioEnabled) return;
+    playTone(500, 0.06, { type:'sawtooth', volume:0.3 });
+  }
+
+  function sfxExplosion() {
+    if (!audioEnabled) initAudio();
+    if (!audioEnabled) return;
+    playNoise(0.25, { volume: 0.4 });
+    setTimeout(() => {
+      playSweep(220, 80, 0.25, { type:'triangle', volume:0.3 });
+    }, 10);
+  }
+
+  // ====== DOM HOOK ======
+  const btnInitAudio    = document.getElementById('btnInitAudio');
+  const btnStopAudio    = document.getElementById('btnStopAudio');
+  const volumeSlider    = document.getElementById('volumeSlider');
+  const volumeLabel     = document.getElementById('volumeLabel');
+
+  const btnPlayerHit        = document.getElementById('btnPlayerHit');
+  const btnStageClearVoice  = document.getElementById('btnStageClearVoice');
+  const btnEnemyDie         = document.getElementById('btnEnemyDie');
+  const btnBossDie          = document.getElementById('btnBossDie');
+  const btnGameOverVoice    = document.getElementById('btnGameOverVoice');
+  const btnShot             = document.getElementById('btnShot');
+  const btnExplosion        = document.getElementById('btnExplosion');
+  const btnHit              = document.getElementById('btnHit');
+
+  btnInitAudio.addEventListener('click', () => {
+    initAudio();
+  });
+
+  btnStopAudio.addEventListener('click', () => {
+    stopAllAudio();
+  });
+
+  volumeSlider.addEventListener('input', () => {
+    const v = parseInt(volumeSlider.value, 10) || 0;
+    volumeLabel.textContent = v + '%';
+    if (!audioEnabled || !audioCtx || !masterGain) return;
+    setMasterVolume(v / 100);
+  });
+
+  btnPlayerHit.addEventListener('click', sfxPlayerHit);
+  btnStageClearVoice.addEventListener('click', sfxStageClearLaugh);
+  btnEnemyDie.addEventListener('click', sfxEnemyDie);
+  btnBossDie.addEventListener('click', sfxBossDie);
+  btnGameOverVoice.addEventListener('click', sfxGameOverTease);
+
+  btnShot.addEventListener('click', sfxShot);
+  btnExplosion.addEventListener('click', sfxExplosion);
+  btnHit.addEventListener('click', sfxHit);
+</script>
+</body>
+</html>
