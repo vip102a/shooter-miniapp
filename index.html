@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8" />
-  <title>Survival Shooter — Stars Mini App</title>
+  <title>Survival Shooter — Stars Mini App (DEV)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 
   <!-- Telegram Mini App SDK -->
@@ -228,7 +228,6 @@
 
   <div id="overlay" class="overlay"></div>
 
-  <!-- Mobile: giữ nút 🔥 làm skill sau này -->
   <div class="controls">
     <button class="ctrl-btn" id="btnShoot">🔥</button>
   </div>
@@ -247,6 +246,12 @@
   // ===== CONFIG =====
   const BACKEND = 'https://backend-yemh.onrender.com';
   const STORAGE_KEY = 'survival_shooter_progress_v3';
+
+  // ⚠️ DEV: FREE SHOP
+  // true  -> mua trong shop KHÔNG tốn Stars, không gọi openInvoice
+  // false -> dùng Stars thật qua Telegram
+  const DEV_FREE_SHOP = true;
+
   const AUTO_SHOOT = true;
 
   const WEAPON_KEYS = ['pistol','rifle','shotgun','sniper'];
@@ -575,16 +580,16 @@
   function showMainMenu() {
     gameState = 'menu';
     overlay.innerHTML = `
-      <h1>🎮 Survival Shooter</h1>
-      <p>Vuốt/ngón tay để di chuyển, auto-bắn hạ quái để vượt ải.<br/>
-      Dùng <b>Stars Telegram</b> để mở khóa & nâng cấp vũ khí.</p>
+      <h1>🎮 Survival Shooter (DEV)</h1>
+      <p>Shop đang ở chế độ <b>DEV FREE</b> — mua không tốn Stars để test.<br/>
+      Vuốt/ngón tay để di chuyển, auto-bắn hạ quái để vượt ải.</p>
       <p style="font-size:13px;opacity:0.9">
-        <b>PC:</b> A/D di chuyển (auto bắn).<br/>
-        <b>Điện thoại:</b> Vuốt để di chuyển, nút 🔥 sẽ dùng làm skill sau này.
+        <b>PC:</b> A/D di chuyển (auto bắn). Nhấn <b>Q</b> để đổi súng.<br/>
+        <b>Điện thoại:</b> Vuốt để di chuyển.
       </p>
       <button id="btnStartGame">Bắt đầu ải 1</button>
-      <button id="btnOpenShopFromMenu" class="secondary">🛒 Mở Shop (Stars)</button>
-      <small>Tiến trình vũ khí được lưu trên thiết bị này.</small>
+      <button id="btnOpenShopFromMenu" class="secondary">🛒 Mở Shop (DEV)</button>
+      <small>🔧 Đừng quên tắt DEV_FREE_SHOP khi chạy thật.</small>
     `;
     overlay.style.display = 'flex';
     document.getElementById('btnStartGame').onclick = () => { ensureAudio(); startGame(); };
@@ -595,7 +600,7 @@
       <h1>✅ Hoàn thành ải ${stage}</h1>
       <p>Bạn đã sống sót qua ải <b>${stage}</b>! Quái ải sau sẽ đông & trâu hơn.</p>
       <button id="btnNextStage">Tiếp tục ải ${stage+1}</button>
-      <button id="btnOpenShopFromStage" class="secondary">🛒 Mở Shop (Stars)</button>
+      <button id="btnOpenShopFromStage" class="secondary">🛒 Mở Shop (DEV)</button>
     `;
     overlay.style.display = 'flex';
     document.getElementById('btnNextStage').onclick = () => { ensureAudio(); nextStage(); };
@@ -604,9 +609,9 @@
   function showGameOver() {
     overlay.innerHTML = `
       <h1>💀 Game Over</h1>
-      <p>Bạn dừng lại ở ải <b>${stage}</b>. Hãy nâng cấp vũ khí bằng Stars để đi xa hơn!</p>
+      <p>Bạn dừng lại ở ải <b>${stage}</b>. Hãy nâng cấp vũ khí để đi xa hơn!</p>
       <button id="btnRetry">Chơi lại từ ải 1</button>
-      <button id="btnOpenShopFromOver" class="secondary">🛒 Mở Shop (Stars)</button>
+      <button id="btnOpenShopFromOver" class="secondary">🛒 Mở Shop (DEV)</button>
     `;
     overlay.style.display = 'flex';
     document.getElementById('btnRetry').onclick = () => { ensureAudio(); startGame(); };
@@ -658,7 +663,7 @@
   }
 
   function showShop(message) {
-    const msg = message || 'Mua vũ khí và item bằng Stars Telegram.';
+    const msg = message || (DEV_FREE_SHOP ? 'DEV MODE: mua miễn phí để test tính năng.' : 'Mua vũ khí và item bằng Stars Telegram.');
     const rows = [];
     Object.values(SHOP_PRODUCTS).forEach(p => {
       const price = getProductPrice(p.id);
@@ -686,7 +691,7 @@
               data-product-id="${p.id}"
               ${buyable ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"'}
               style="padding:6px 10px;border-radius:999px;font-size:12px;">
-              ${buyable ? 'Mua bằng Stars' : 'Không thể mua'}
+              ${buyable ? (DEV_FREE_SHOP ? 'Mua (DEV FREE)' : 'Mua bằng Stars') : 'Không thể mua'}
             </button>
           </div>
           <div class="shop-status-text">${stateText}</div>
@@ -695,11 +700,11 @@
     });
 
     overlay.innerHTML = `
-      <h1>🛒 Shop (Stars)</h1>
+      <h1>🛒 Shop (${DEV_FREE_SHOP ? 'DEV FREE' : 'Stars'})</h1>
       <p>${msg}</p>
       <div class="shop-list">${rows.join('')}</div>
       <button id="btnBackFromShop" class="secondary">⬅ Quay lại</button>
-      <small id="shopStatusText" style="margin-top:4px;">Tip: Hãy test với số Stars nhỏ trước.</small>
+      <small id="shopStatusText" style="margin-top:4px;">${DEV_FREE_SHOP ? 'Hiện tại: DEV_FREE_SHOP = true (không tốn Stars).' : 'Tip: Hãy test với số Stars nhỏ trước.'}</small>
     `;
     overlay.style.display = 'flex';
 
@@ -782,10 +787,23 @@
 
   async function startPurchase(productId) {
     const p = SHOP_PRODUCTS[productId]; if (!p) return;
-    if (!inTelegram()) { alert('Bạn chỉ có thể mua bằng Stars khi mở game trong Telegram.'); return; }
     const price = getProductPrice(productId);
     if (price == null) { showShop('Mục này hiện không thể mua.'); return; }
     if (!isProductBuyable(p)) { showShop('Mục này hiện không thể mua ở trạng thái hiện tại.'); return; }
+
+    // DEV: không dùng Stars, không gọi openInvoice
+    if (DEV_FREE_SHOP) {
+      console.log('[DEV] Fake purchase for product:', productId);
+      setShopStatus('(DEV) Đã giả lập thanh toán thành công. Không tốn Stars.', false);
+      applyPurchase(productId);
+      return;
+    }
+
+    // PRODUCTION: dùng Stars thật
+    if (!inTelegram()) {
+      alert('Bạn chỉ có thể mua bằng Stars khi mở game trong Telegram.');
+      return;
+    }
 
     try {
       setShopStatus('Đang tạo hoá đơn Stars...', false);
@@ -1049,14 +1067,12 @@
       });
     }
   }
-
   function updateStars(dt) {
     for (const s of stars) {
       s.y += s.speed * dt;
       if (s.y > canvas.height) s.y -= canvas.height;
     }
   }
-
   function drawBackground() {
     const grd = ctx.createLinearGradient(0,0,0,canvas.height);
     grd.addColorStop(0, '#141b3a');
