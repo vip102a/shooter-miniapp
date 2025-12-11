@@ -180,16 +180,22 @@
       border:none;
       background:rgba(255,255,255,0.06);
       color:#fff;
-      font-size:22px;
+      font-size:18px;
       display:flex;
+      flex-direction:column;
       align-items:center;
       justify-content:center;
+      line-height:1.1;
       box-shadow:0 8px 18px rgba(0,0,0,0.6);
       backdrop-filter:blur(8px);
       -webkit-backdrop-filter:blur(8px);
       cursor:pointer;
       touch-action:none;
       pointer-events:auto;
+    }
+    .ctrl-btn span {
+      font-size:11px;
+      opacity:0.9;
     }
     .ctrl-btn:active { transform:scale(0.96); }
 
@@ -220,12 +226,14 @@
         <span class="pill-label">Weapon</span>
         <span id="hudWeapon">Pistol Lv.1</span>
       </div>
-      <!-- Nút đổi súng -->
       <button class="pill" id="btnSwitchWeaponHud" style="font-size:11px;padding:4px 10px;">
         🔁 Gun
       </button>
       <button class="pill" id="btnOpenShopHud" style="font-size:11px;padding:4px 10px;">
         🛒 Shop
+      </button>
+      <button class="pill" id="btnPauseHud" style="font-size:11px;padding:4px 10px;">
+        ⏸
       </button>
     </div>
   </div>
@@ -233,7 +241,10 @@
   <div id="overlay" class="overlay"></div>
 
   <div class="controls">
-    <button class="ctrl-btn" id="btnShoot">🔥</button>
+    <button class="ctrl-btn" id="btnShoot">
+      🔥
+      <span id="firestormCountLabel">x0</span>
+    </button>
   </div>
 </div>
 
@@ -248,8 +259,8 @@
   }
 
   // ===== CONFIG =====
-  const BACKEND = 'https://backend-yemh.onrender.com';
-  const STORAGE_KEY = 'survival_shooter_progress_v3';
+  const BACKEND     = 'https://backend-yemh.onrender.com';
+  const STORAGE_KEY = 'survival_shooter_progress_v4';
 
   // ⚠️ DEV: FREE SHOP
   // true  -> mua trong shop KHÔNG tốn Stars, không gọi openInvoice
@@ -263,39 +274,96 @@
   const WEAPON_CONFIG = {
     pistol: {
       displayName: 'Pistol',
-      levels: [
-        { damage: 12, cooldown: 0.35, bulletSpeed: 500, pellets: 1 },
-        { damage: 16, cooldown: 0.32, bulletSpeed: 520, pellets: 1 },
-        { damage: 20, cooldown: 0.30, bulletSpeed: 540, pellets: 1 },
-      ]
+      levels: [] // sẽ khởi tạo bên dưới
     },
     rifle: {
       displayName: 'Rifle',
-      levels: [
-        { damage: 9, cooldown: 0.18, bulletSpeed: 640, pellets: 1 },
-        { damage: 12, cooldown: 0.16, bulletSpeed: 660, pellets: 1 },
-        { damage: 15, cooldown: 0.14, bulletSpeed: 680, pellets: 1 },
-      ]
+      levels: []
     },
     shotgun: {
       displayName: 'Shotgun',
-      levels: [
-        { damage: 7, cooldown: 0.5, bulletSpeed: 460, pellets: 3 },
-        { damage: 9, cooldown: 0.46, bulletSpeed: 470, pellets: 3 },
-        { damage: 11, cooldown: 0.42, bulletSpeed: 480, pellets: 4 },
-      ]
+      levels: []
     },
     sniper: {
       displayName: 'Sniper',
-      levels: [
-        { damage: 35, cooldown: 0.9, bulletSpeed: 900, pellets: 1 },
-        { damage: 45, cooldown: 0.85, bulletSpeed: 920, pellets: 1 },
-        { damage: 55, cooldown: 0.8, bulletSpeed: 940, pellets: 1 },
-      ]
+      levels: [] // sẽ khởi tạo 20 level
     }
   };
 
+  // Khởi tạo levels cho các vũ khí (có thể chỉnh formula sau này)
+  (function initWeapons() {
+    // Pistol: 3 level
+    WEAPON_CONFIG.pistol.levels = [
+      { damage: 12, cooldown: 0.35, bulletSpeed: 500, pellets: 1 },
+      { damage: 16, cooldown: 0.32, bulletSpeed: 520, pellets: 1 },
+      { damage: 20, cooldown: 0.30, bulletSpeed: 540, pellets: 1 },
+    ];
+    // Rifle: 3 level
+    WEAPON_CONFIG.rifle.levels = [
+      { damage: 9, cooldown: 0.18, bulletSpeed: 640, pellets: 1 },
+      { damage: 12, cooldown: 0.16, bulletSpeed: 660, pellets: 1 },
+      { damage: 15, cooldown: 0.14, bulletSpeed: 680, pellets: 1 },
+    ];
+    // Shotgun: 3 level
+    WEAPON_CONFIG.shotgun.levels = [
+      { damage: 7, cooldown: 0.5,  bulletSpeed: 460, pellets: 3 },
+      { damage: 9, cooldown: 0.46, bulletSpeed: 470, pellets: 3 },
+      { damage: 11,cooldown: 0.42, bulletSpeed: 480, pellets: 4 },
+    ];
+    // Sniper: 20 level (lẻ tăng dame, chẵn tăng tốc bắn)
+    const levels = [];
+    let dmg = 40;
+    let cd  = 1.1;
+    let spd = 900;
+    for (let lv = 1; lv <= 20; lv++) {
+      levels.push({
+        damage: dmg,
+        cooldown: cd,
+        bulletSpeed: spd,
+        pellets: 1
+      });
+      if (lv % 2 === 1) {
+        // level lẻ: tăng dame
+        dmg += 6;
+      } else {
+        // level chẵn: tăng tốc bắn, tăng nhẹ speed
+        cd  = Math.max(0.25, cd * 0.92);
+        spd += 10;
+      }
+    }
+    WEAPON_CONFIG.sniper.levels = levels;
+  })();
+
   const SHOP_PRODUCTS = {
+    // thứ tự hiển thị sẽ điều khiển bằng SHOP_ORDER bên dưới
+    heal_full: {
+      id: 'heal_full',
+      type: 'heal',
+      title: 'Hồi máu đầy',
+      description: 'Hồi đầy HP trong trận hiện tại.',
+      priceStars: 5
+    },
+    armor_plus: {
+      id: 'armor_plus',
+      type: 'armor',
+      title: 'Giáp vĩnh viễn +20 HP',
+      description: 'Tăng HP tối đa cho tất cả trận sau này.',
+      priceStars: 12
+    },
+    revive_continue: {
+      id: 'revive_continue',
+      type: 'revive',
+      title: 'Chơi tiếp màn vừa thua',
+      description: 'Hồi sinh trong ải vừa thua (mỗi ải tối đa 1 lần).',
+      priceStars: 10
+    },
+    firestorm: {
+      id: 'firestorm',
+      type: 'firestorm',
+      title: 'Bão lửa',
+      description: 'Quét sạch đạn địch và đốt 10% máu mỗi quái trên màn. Có thể mua nhiều lần.',
+      priceStars: 4  // 4⭐ cho mỗi lần dùng
+    },
     unlock_rifle: {
       id: 'unlock_rifle',
       type: 'unlockWeapon',
@@ -317,7 +385,7 @@
       type: 'unlockWeapon',
       weaponKey: 'sniper',
       title: 'Mở khóa Sniper',
-      description: 'Sát thương cực cao, kết liễu boss nhanh.',
+      description: 'Sát thương cực cao, đạn tự dò mục tiêu.',
       priceStars: 50
     },
     upgrade_pistol: {
@@ -343,22 +411,23 @@
       type: 'upgradeWeapon',
       weaponKey: 'sniper',
       basePrice: 25
-    },
-    heal_full: {
-      id: 'heal_full',
-      type: 'heal',
-      title: 'Hồi máu đầy',
-      description: 'Hồi đầy HP trong trận hiện tại.',
-      priceStars: 5
-    },
-    armor_plus: {
-      id: 'armor_plus',
-      type: 'armor',
-      title: 'Giáp vĩnh viễn +20 HP',
-      description: 'Tăng HP tối đa cho tất cả trận sau này.',
-      priceStars: 12
     }
   };
+
+  // Thứ tự hiển thị shop
+  const SHOP_ORDER = [
+    'heal_full',
+    'armor_plus',
+    'revive_continue',
+    'firestorm',
+    'unlock_rifle',
+    'unlock_shotgun',
+    'unlock_sniper',
+    'upgrade_pistol',
+    'upgrade_rifle',
+    'upgrade_shotgun',
+    'upgrade_sniper'
+  ];
 
   // ===== PROGRESS =====
   function loadProgress() {
@@ -373,14 +442,42 @@
   function saveProgress() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch (e) {}
   }
+  function getMaxWeaponLevel(key) {
+    const cfg = WEAPON_CONFIG[key];
+    if (!cfg || !cfg.levels || !cfg.levels.length) return 1;
+    return cfg.levels.length;
+  }
 
   const defaultProgress = {
     unlockedWeapons: { pistol: true, rifle: false, shotgun: false, sniper: false },
     weaponLevels:    { pistol: 1,    rifle: 0,     shotgun: 0,     sniper: 0     },
     armorLevel: 0,
-    bestStage: 0
+    bestStage: 0,
+    firestormCharges: 0
   };
   let progress = loadProgress() || defaultProgress;
+
+  function ensureProgressShape() {
+    if (!progress.unlockedWeapons) {
+      progress.unlockedWeapons = { pistol:true, rifle:false, shotgun:false, sniper:false };
+    }
+    if (!progress.weaponLevels) {
+      progress.weaponLevels = { pistol:1, rifle:0, shotgun:0, sniper:0 };
+    }
+    if (progress.armorLevel == null) progress.armorLevel = 0;
+    if (progress.bestStage == null) progress.bestStage = 0;
+    if (progress.firestormCharges == null) progress.firestormCharges = 0;
+
+    // clamp level theo số level thực tế
+    for (const key of WEAPON_KEYS) {
+      const maxLv = getMaxWeaponLevel(key);
+      let lv = progress.weaponLevels[key] || (progress.unlockedWeapons[key] ? 1 : 0);
+      if (lv > maxLv) lv = maxLv;
+      progress.weaponLevels[key] = lv;
+    }
+  }
+  ensureProgressShape();
+  saveProgress();
 
   // ===== GAME STATE =====
   const canvas = document.getElementById('gameCanvas');
@@ -390,10 +487,12 @@
   const hpFill     = document.getElementById('hpFill');
   const hudHpText  = document.getElementById('hudHpText');
   const hudWeapon  = document.getElementById('hudWeapon');
-  const btnShopHud = document.getElementById('btnOpenShopHud');
-  const btnSwitchHud = document.getElementById('btnSwitchWeaponHud');
+  const btnShopHud    = document.getElementById('btnOpenShopHud');
+  const btnSwitchHud  = document.getElementById('btnSwitchWeaponHud');
+  const btnPauseHud   = document.getElementById('btnPauseHud');
   const overlay    = document.getElementById('overlay');
   const btnShoot   = document.getElementById('btnShoot');
+  const firestormLabel = document.getElementById('firestormCountLabel');
 
   const keys = { left: false, right: false, shoot: false };
 
@@ -402,8 +501,11 @@
   const BASE_ENEMY_COUNT = 10;
   const ENEMY_PER_STAGE  = 5;
 
-  let gameState = 'menu';
+  let gameState = 'menu'; // 'menu','playing','paused','stageClear','gameOver'
   let stage = 1;
+  let reviveUsedThisStage = false;
+  let shopReturnMode = 'menu';
+  let firestormFlashTimer = 0;
 
   const player = {
     x: canvas.width / 2,
@@ -482,14 +584,22 @@
   // ===== UTIL =====
   function getWeaponStats(key) {
     const cfg = WEAPON_CONFIG[key] || WEAPON_CONFIG.pistol;
-    const level = Math.max(1, progress.weaponLevels[key] || 1);
-    const idx = Math.min(cfg.levels.length, level) - 1;
+    const maxLv = getMaxWeaponLevel(key);
+    let level = progress.weaponLevels[key] || 1;
+    if (level < 1) level = 1;
+    if (level > maxLv) level = maxLv;
+    const idx = level - 1;
     return cfg.levels[idx];
   }
   function updateHudWeapon() {
     const cfg = WEAPON_CONFIG[player.weaponKey];
     const lv  = progress.weaponLevels[player.weaponKey] || 1;
     hudWeapon.textContent = cfg.displayName + ' Lv.' + lv;
+  }
+  function updateFirestormHud() {
+    const c = progress.firestormCharges || 0;
+    firestormLabel.textContent = 'x' + c;
+    btnShoot.style.opacity = c > 0 ? '1' : '0.5';
   }
   function resetPlayer() {
     player.x = canvas.width / 2;
@@ -561,6 +671,7 @@
       });
     }
     hudStage.textContent = n;
+    reviveUsedThisStage = false;
   }
 
   function startGame() {
@@ -590,7 +701,7 @@
       Vuốt/ngón tay để di chuyển, auto-bắn hạ quái để vượt ải.</p>
       <p style="font-size:13px;opacity:0.9">
         <b>PC:</b> A/D di chuyển (auto bắn). Nhấn <b>Q</b> hoặc nút 🔁 Gun để đổi súng.<br/>
-        <b>Điện thoại:</b> Vuốt để di chuyển, bấm 🔁 Gun để đổi súng.
+        <b>Điện thoại:</b> Vuốt trên màn hình để di chuyển, dùng ngón thứ 2 bấm 🔁 Gun / 🔥 Bão lửa.
       </p>
       <button id="btnStartGame">Bắt đầu ải 1</button>
       <button id="btnOpenShopFromMenu" class="secondary">🛒 Mở Shop (DEV)</button>
@@ -598,9 +709,11 @@
     `;
     overlay.style.display = 'flex';
     document.getElementById('btnStartGame').onclick = () => { ensureAudio(); startGame(); };
-    document.getElementById('btnOpenShopFromMenu').onclick = () => { ensureAudio(); showShop(); };
+    document.getElementById('btnOpenShopFromMenu').onclick = () => { ensureAudio(); showShop(null,'menu'); };
+    shopReturnMode = 'menu';
   }
   function showStageClear() {
+    gameState = 'stageClear';
     overlay.innerHTML = `
       <h1>✅ Hoàn thành ải ${stage}</h1>
       <p>Bạn đã sống sót qua ải <b>${stage}</b>! Quái ải sau sẽ đông & trâu hơn.</p>
@@ -609,30 +722,59 @@
     `;
     overlay.style.display = 'flex';
     document.getElementById('btnNextStage').onclick = () => { ensureAudio(); nextStage(); };
-    document.getElementById('btnOpenShopFromStage').onclick = () => { ensureAudio(); showShop(); };
+    document.getElementById('btnOpenShopFromStage').onclick = () => { ensureAudio(); showShop(null,'stageClear'); };
+    shopReturnMode = 'stageClear';
   }
   function showGameOver() {
+    gameState = 'gameOver';
     overlay.innerHTML = `
       <h1>💀 Game Over</h1>
-      <p>Bạn dừng lại ở ải <b>${stage}</b>. Hãy nâng cấp vũ khí để đi xa hơn!</p>
+      <p>Bạn dừng lại ở ải <b>${stage}</b>. Có thể dùng <b>Revive</b> hoặc nâng cấp súng/bão lửa để đi xa hơn!</p>
       <button id="btnRetry">Chơi lại từ ải 1</button>
-      <button id="btnOpenShopFromOver" class="secondary">🛒 Mở Shop (DEV)</button>
+      <button id="btnOpenShopFromOver" class="secondary">🛒 Mở Shop (Revive/Bão lửa)</button>
     `;
     overlay.style.display = 'flex';
     document.getElementById('btnRetry').onclick = () => { ensureAudio(); startGame(); };
-    document.getElementById('btnOpenShopFromOver').onclick = () => { ensureAudio(); showShop(); };
+    document.getElementById('btnOpenShopFromOver').onclick = () => { ensureAudio(); showShop(null,'gameOver'); };
+    shopReturnMode = 'gameOver';
+  }
+  function showPauseOverlay() {
+    gameState = 'paused';
+    overlay.innerHTML = `
+      <h1>⏸ Tạm dừng</h1>
+      <p>Bạn đang ở ải <b>${stage}</b>.</p>
+      <button id="btnResume">Tiếp tục chơi</button>
+      <button id="btnPauseShop" class="secondary">🛒 Mở Shop</button>
+      <button id="btnPauseToMenu" class="secondary">🏠 Về menu chính</button>
+    `;
+    overlay.style.display = 'flex';
+    document.getElementById('btnResume').onclick = () => {
+      ensureAudio(); playClickSound(); hideOverlay(); gameState = 'playing';
+    };
+    document.getElementById('btnPauseShop').onclick = () => {
+      ensureAudio(); showShop(null,'pause');
+    };
+    document.getElementById('btnPauseToMenu').onclick = () => {
+      ensureAudio(); playClickSound(); showMainMenu();
+    };
+    shopReturnMode = 'pause';
   }
   function hideOverlay() { overlay.style.display = 'none'; }
 
   // ===== SHOP =====
   function getUpgradePrice(product) {
     const lvl = progress.weaponLevels[product.weaponKey] || 1;
-    if (lvl >= 3) return null;
+    const maxLv = getMaxWeaponLevel(product.weaponKey);
+    if (lvl >= maxLv) return null;
     return product.basePrice * lvl;
   }
-  function getProductPrice(id) {
+  function getProductPrice(id, qtyOverride) {
     const p = SHOP_PRODUCTS[id]; if (!p) return null;
     if (p.type === 'upgradeWeapon') return getUpgradePrice(p);
+    if (p.type === 'firestorm') {
+      const q = qtyOverride || 1;
+      return p.priceStars * q;
+    }
     return p.priceStars;
   }
   function getProductStateText(p) {
@@ -642,12 +784,19 @@
     }
     if (p.type === 'upgradeWeapon') {
       const lvl = progress.weaponLevels[p.weaponKey] || 1;
+      const maxLv = getMaxWeaponLevel(p.weaponKey);
       if (!progress.unlockedWeapons[p.weaponKey]) return 'Chưa mở khóa vũ khí này';
-      if (lvl >= 3) return `Đã tối đa (Lv.${lvl})`;
+      if (lvl >= maxLv) return `Đã tối đa (Lv.${lvl})`;
       return `Hiện tại: Lv.${lvl}`;
     }
     if (p.type === 'heal')   return 'Hồi máu trong trận hiện tại';
     if (p.type === 'armor')  return `Giáp hiện tại: +${progress.armorLevel*20} HP`;
+    if (p.type === 'revive') {
+      return 'Chỉ dùng khi vừa thua 1 ải (mỗi ải 1 lần)';
+    }
+    if (p.type === 'firestorm') {
+      return `Đang có: ${progress.firestormCharges || 0} lần Bão lửa`;
+    }
     return '';
   }
   function isProductBuyable(p) {
@@ -655,7 +804,8 @@
     if (p.type === 'upgradeWeapon') {
       if (!progress.unlockedWeapons[p.weaponKey]) return false;
       const lvl = progress.weaponLevels[p.weaponKey] || 1;
-      if (lvl >= 3) return false;
+      const maxLv = getMaxWeaponLevel(p.weaponKey);
+      if (lvl >= maxLv) return false;
       return true;
     }
     if (p.type === 'heal') {
@@ -664,21 +814,45 @@
       return true;
     }
     if (p.type === 'armor') return true;
+    if (p.type === 'revive') {
+      // chỉ có ý nghĩa khi đang Game Over và chưa revive ở ải này
+      if (gameState !== 'gameOver') return false;
+      if (reviveUsedThisStage) return false;
+      return true;
+    }
+    if (p.type === 'firestorm') {
+      // luôn mua được
+      return true;
+    }
     return true;
   }
 
-  function showShop(message) {
-    const msg = message || (DEV_FREE_SHOP ? 'DEV MODE: mua miễn phí để test tính năng.' : 'Mua vũ khí và item bằng Stars Telegram.');
+  function showShop(message, returnMode) {
+    if (returnMode) shopReturnMode = returnMode;
+    const msg = message || (DEV_FREE_SHOP ? 'DEV MODE: mua miễn phí để test tính năng.' : 'Mua vũ khí, hồi máu, revive và Bão lửa bằng Stars Telegram.');
+
     const rows = [];
-    Object.values(SHOP_PRODUCTS).forEach(p => {
-      const price = getProductPrice(p.id);
+    for (const id of SHOP_ORDER) {
+      const p = SHOP_PRODUCTS[id];
+      if (!p) continue;
+      const isFirestorm = (p.type === 'firestorm');
+      const price = getProductPrice(p.id, 1);
       const stateText = getProductStateText(p);
       const buyable = isProductBuyable(p) && price !== null;
+
       let priceText = price !== null ? `${price} ⭐` : '—';
       if (p.type === 'upgradeWeapon' && price !== null) {
         const lvl = progress.weaponLevels[p.weaponKey] || 1;
         priceText = `${price} ⭐ (nâng lên Lv.${lvl+1})`;
       }
+      if (isFirestorm) {
+        priceText = `4 ⭐ / 1 lần (giá hiển thị là 1 lần)`;
+      }
+
+      const labelBtn = buyable
+        ? (DEV_FREE_SHOP ? 'Mua (DEV FREE)' : (isFirestorm ? 'Mua Bão lửa' : 'Mua bằng Stars'))
+        : 'Không thể mua';
+
       rows.push(`
         <div class="shop-item">
           <div class="shop-item-header">
@@ -696,35 +870,64 @@
               data-product-id="${p.id}"
               ${buyable ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"'}
               style="padding:6px 10px;border-radius:999px;font-size:12px;">
-              ${buyable ? (DEV_FREE_SHOP ? 'Mua (DEV FREE)' : 'Mua bằng Stars') : 'Không thể mua'}
+              ${labelBtn}
             </button>
           </div>
           <div class="shop-status-text">${stateText}</div>
         </div>
       `);
-    });
+    }
 
     overlay.innerHTML = `
       <h1>🛒 Shop (${DEV_FREE_SHOP ? 'DEV FREE' : 'Stars'})</h1>
       <p>${msg}</p>
       <div class="shop-list">${rows.join('')}</div>
       <button id="btnBackFromShop" class="secondary">⬅ Quay lại</button>
-      <small id="shopStatusText" style="margin-top:4px;">${DEV_FREE_SHOP ? 'Hiện tại: DEV_FREE_SHOP = true (không tốn Stars).' : 'Tip: Hãy test với số Stars nhỏ trước.'}</small>
+      <small id="shopStatusText" style="margin-top:4px;">
+        ${DEV_FREE_SHOP ? 'Hiện tại: DEV_FREE_SHOP = true (không tốn Stars).' : 'Tip: Hãy test với số Stars nhỏ trước.'}
+      </small>
     `;
     overlay.style.display = 'flex';
 
     document.getElementById('btnBackFromShop').onclick = () => {
       playClickSound();
-      if (gameState === 'playing') hideOverlay();
-      else if (gameState === 'gameOver') showGameOver();
-      else if (gameState === 'stageClear') showStageClear();
-      else showMainMenu();
+      const mode = shopReturnMode || 'menu';
+      if (mode === 'playing') {
+        hideOverlay();
+        gameState = 'playing';
+      } else if (mode === 'pause') {
+        showPauseOverlay();
+      } else if (mode === 'menu') {
+        showMainMenu();
+      } else if (mode === 'stageClear') {
+        showStageClear();
+      } else if (mode === 'gameOver') {
+        showGameOver();
+      } else {
+        hideOverlay();
+      }
     };
 
     document.querySelectorAll('.shop-item button[data-product-id]').forEach(btn => {
       btn.onclick = () => {
         const id = btn.getAttribute('data-product-id');
-        ensureAudio(); playClickSound(); startPurchase(id);
+        ensureAudio(); playClickSound();
+        const p = SHOP_PRODUCTS[id];
+        if (p && p.type === 'firestorm') {
+          // chọn số lượng bằng prompt
+          let qty = 1;
+          const s = prompt('Bạn muốn mua bao nhiêu lần Bão lửa? (1 - 10)', '1');
+          if (s == null) return;
+          const n = parseInt(s, 10);
+          if (isNaN(n) || n < 1 || n > 10) {
+            setShopStatus('Số lượng không hợp lệ (1-10).', true);
+            return;
+          }
+          qty = n;
+          startPurchase(id, qty);
+        } else {
+          startPurchase(id, 1);
+        }
       };
     });
   }
@@ -736,14 +939,14 @@
     el.style.color = isError ? '#ff8080' : '#ffffff';
   }
 
-  async function createInvoice(productId, priceStars, payload) {
+  async function createInvoice(productId, totalStars, payload) {
     const p = SHOP_PRODUCTS[productId];
     const title = p.title || 'Item '+productId;
     const description = p.description || 'Mua vật phẩm trong game bằng Telegram Stars.';
     const r = await fetch(BACKEND + '/api/create-invoice', {
       method: 'POST',
       headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify({ title, description, price_stars: priceStars, payload })
+      body: JSON.stringify({ title, description, price_stars: totalStars, payload })
     });
     return r.json();
   }
@@ -758,49 +961,73 @@
     } catch (e) { return { ok:false, error:e.message }; }
   }
 
-  function applyPurchase(productId) {
+  function applyPurchase(productId, qty) {
     const p = SHOP_PRODUCTS[productId]; if (!p) return;
+    qty = qty || 1;
+
     if (p.type === 'unlockWeapon') {
       progress.unlockedWeapons[p.weaponKey] = true;
       if (!progress.weaponLevels[p.weaponKey] || progress.weaponLevels[p.weaponKey]<=0) {
         progress.weaponLevels[p.weaponKey] = 1;
       }
       saveProgress(); updateHudWeapon();
-      showShop('Mua thành công! Vũ khí mới đã được mở khóa.');
+      showShop('Mua thành công! Vũ khí mới đã được mở khóa.', shopReturnMode);
       return;
     }
     if (p.type === 'upgradeWeapon') {
-      if (!progress.unlockedWeapons[p.weaponKey]) { showShop('Chưa mở khóa vũ khí này.'); return; }
+      if (!progress.unlockedWeapons[p.weaponKey]) { showShop('Chưa mở khóa vũ khí này.', shopReturnMode); return; }
+      const maxLv = getMaxWeaponLevel(p.weaponKey);
       const lvl = progress.weaponLevels[p.weaponKey] || 1;
-      if (lvl >= 3) { showShop('Vũ khí này đã tối đa.'); return; }
-      progress.weaponLevels[p.weaponKey] = lvl+1; saveProgress();
+      if (lvl >= maxLv) { showShop('Vũ khí này đã tối đa.', shopReturnMode); return; }
+      progress.weaponLevels[p.weaponKey] = Math.min(maxLv, lvl+1); saveProgress();
       if (player.weaponKey === p.weaponKey) updateHudWeapon();
-      showShop('Nâng cấp thành công! Vũ khí mạnh hơn rồi.');
+      showShop('Nâng cấp thành công! Vũ khí mạnh hơn rồi.', shopReturnMode);
       return;
     }
     if (p.type === 'heal') {
       player.hp = player.maxHp;
-      showShop('Đã hồi đầy máu cho trận hiện tại.');
+      showShop('Đã hồi đầy máu cho trận hiện tại.', shopReturnMode);
       return;
     }
     if (p.type === 'armor') {
       progress.armorLevel += 1; saveProgress();
-      showShop('Đã tăng giáp vĩnh viễn. Từ trận sau bạn sẽ có nhiều HP hơn.');
+      showShop('Đã tăng giáp vĩnh viễn. Từ trận sau bạn sẽ có nhiều HP hơn.', shopReturnMode);
+      return;
+    }
+    if (p.type === 'firestorm') {
+      progress.firestormCharges = (progress.firestormCharges || 0) + qty;
+      saveProgress();
+      updateFirestormHud();
+      showShop(`Đã mua thêm ${qty} lần Bão lửa.`, shopReturnMode);
+      return;
+    }
+    if (p.type === 'revive') {
+      // Revive ngay trong ải vừa thua
+      if (gameState !== 'gameOver' || reviveUsedThisStage) {
+        showShop('Chỉ dùng được khi vừa thua và chưa revive ở ải này.', shopReturnMode);
+        return;
+      }
+      reviveUsedThisStage = true;
+      player.hp = player.maxHp * 0.7;
+      enemyBullets = [];
+      gameState = 'playing';
+      hideOverlay();
+      playExplosionSound();
       return;
     }
   }
 
-  async function startPurchase(productId) {
+  async function startPurchase(productId, qty) {
     const p = SHOP_PRODUCTS[productId]; if (!p) return;
-    const price = getProductPrice(productId);
-    if (price == null) { showShop('Mục này hiện không thể mua.'); return; }
-    if (!isProductBuyable(p)) { showShop('Mục này hiện không thể mua ở trạng thái hiện tại.'); return; }
+    const price = getProductPrice(productId, qty);
+    if (price == null) { showShop('Mục này hiện không thể mua.', shopReturnMode); return; }
+    if (!isProductBuyable(p)) { showShop('Mục này hiện không thể mua ở trạng thái hiện tại.', shopReturnMode); return; }
 
     // DEV: không dùng Stars, không gọi openInvoice
     if (DEV_FREE_SHOP) {
-      console.log('[DEV] Fake purchase for product:', productId);
+      console.log('[DEV] Fake purchase for product:', productId, 'qty=', qty);
       setShopStatus('(DEV) Đã giả lập thanh toán thành công. Không tốn Stars.', false);
-      applyPurchase(productId);
+      applyPurchase(productId, qty);
       return;
     }
 
@@ -812,7 +1039,7 @@
 
     try {
       setShopStatus('Đang tạo hoá đơn Stars...', false);
-      const payload = 'game-'+productId+'-'+Date.now();
+      const payload = 'game-'+productId+'-qty'+qty+'-'+Date.now();
       const j = await createInvoice(productId, price, payload);
       if (!j.ok || !j.invoiceLink) {
         setShopStatus('Không tạo được invoice: '+(j.error||'unknown'), true); return;
@@ -824,7 +1051,7 @@
         if (st === 'paid') {
           setShopStatus('Thanh toán thành công, đang cấp vật phẩm...', false);
           try { await deliverReward(payload); } catch(e){}
-          applyPurchase(productId);
+          applyPurchase(productId, qty);
         } else if (st === 'cancelled') {
           setShopStatus('Bạn đã đóng cửa sổ thanh toán.', true);
         } else if (st === 'failed') {
@@ -839,7 +1066,16 @@
     }
   }
 
-  btnShopHud.addEventListener('click', () => { ensureAudio(); playClickSound(); showShop(); });
+  btnShopHud.addEventListener('click', () => {
+    ensureAudio(); playClickSound();
+    // Đang chơi -> pause + mở shop, game không chạy
+    if (gameState === 'playing') {
+      gameState = 'paused';
+      showShop(null,'playing');
+    } else {
+      showShop(null, gameState);
+    }
+  });
 
   // ===== ĐỔI SÚNG CHUNG (PC + MOBILE) =====
   function cycleWeapon() {
@@ -858,6 +1094,48 @@
     ensureAudio();
     playClickSound();
     cycleWeapon();
+  });
+
+  btnPauseHud.addEventListener('click', () => {
+    ensureAudio();
+    playClickSound();
+    if (gameState === 'playing' || gameState === 'paused') {
+      showPauseOverlay();
+    }
+  });
+
+  // ===== FIRESTORM SKILL =====
+  function useFirestormSkill() {
+    if (gameState !== 'playing') return;
+    const charges = progress.firestormCharges || 0;
+    if (charges <= 0) return;
+    progress.firestormCharges = charges - 1;
+    saveProgress();
+    updateFirestormHud();
+    firestormFlashTimer = 0.25;
+    playExplosionSound();
+
+    // xóa toàn bộ đạn địch
+    enemyBullets = [];
+
+    // trừ 10% máu tối đa mỗi quái, xóa quái chết
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      const dmg = e.maxHp * 0.10;
+      e.hp -= dmg;
+      e.hitTimer = 0.2;
+      if (e.hp <= 0) {
+        enemies.splice(i,1);
+      }
+    }
+    if (enemies.length === 0) {
+      onStageClear();
+    }
+  }
+
+  btnShoot.addEventListener('click', () => {
+    ensureAudio();
+    useFirestormSkill();
   });
 
   // ===== INPUT: KEYBOARD (PC) =====
@@ -904,19 +1182,6 @@
   canvas.addEventListener('pointerup',   () => { isDragging = false; });
   canvas.addEventListener('pointerleave',() => { isDragging = false; });
 
-  // nút 🔥 tạm cho nổ vui tai (sau dùng làm skill)
-  function bindTouchHold(el, onChange) {
-    const s = (ev)=>{ev.preventDefault();onChange(true);};
-    const e = (ev)=>{ev.preventDefault();onChange(false);};
-    el.addEventListener('touchstart', s);
-    el.addEventListener('touchend', e);
-    el.addEventListener('touchcancel', e);
-    el.addEventListener('mousedown', s);
-    el.addEventListener('mouseup', e);
-    el.addEventListener('mouseleave', e);
-  }
-  bindTouchHold(btnShoot, (v)=>{ if (v){ ensureAudio(); playExplosionSound(); } });
-
   // ===== GAME UPDATE =====
   function updatePlayer(dt) {
     let dir = 0;
@@ -948,12 +1213,16 @@
       const pellets = stats.pellets || 1;
       for (let i=0;i<pellets;i++) {
         const spread = (pellets===1)?0:(i-(pellets-1)/2)*18;
+        const isSniper = (player.weaponKey === 'sniper');
         playerBullets.push({
           x: originX + spread,
           y: originY,
-          radius: 4,
+          radius: isSniper ? 5 : 4,
+          vx: 0,
           vy: -stats.bulletSpeed,
-          damage: stats.damage
+          speed: stats.bulletSpeed,
+          damage: stats.damage,
+          homing: isSniper
         });
       }
       player.shootFlashTimer = 0.08;
@@ -988,11 +1257,43 @@
   }
 
   function updateBullets(dt) {
+    // Player bullets (có homing cho sniper)
     for (let i=playerBullets.length-1;i>=0;i--) {
       const b = playerBullets[i];
-      b.y += b.vy * dt;
-      if (b.y < -20) playerBullets.splice(i,1);
+      if (b.homing && enemies.length > 0) {
+        // chọn quái gần nhất
+        let best = null;
+        let bestDist = Infinity;
+        for (const e of enemies) {
+          const dx = e.x - b.x;
+          const dy = e.y - b.y;
+          const d2 = dx*dx + dy*dy;
+          if (d2 < bestDist) {
+            bestDist = d2;
+            best = e;
+          }
+        }
+        if (best) {
+          const dx = best.x - b.x;
+          const dy = best.y - b.y;
+          let len = Math.hypot(dx, dy) || 1;
+          const speed = b.speed || 900;
+          const nx = dx / len;
+          const ny = dy / len;
+          // chỉnh thẳng về mục tiêu (sniper lock-on)
+          b.vx = nx * speed;
+          b.vy = ny * speed;
+        }
+      }
+      b.x += (b.vx || 0) * dt;
+      b.y += (b.vy || 0) * dt;
+
+      if (b.y < -30 || b.y > canvas.height+30 || b.x < -30 || b.x > canvas.width+30) {
+        playerBullets.splice(i,1);
+      }
     }
+
+    // Enemy bullets
     for (let i=enemyBullets.length-1;i>=0;i--) {
       const b = enemyBullets[i];
       b.y += b.vy * dt;
@@ -1013,6 +1314,7 @@
   }
 
   function handleCollisions() {
+    // player bullets vs enemies
     for (let i=playerBullets.length-1;i>=0;i--) {
       const b = playerBullets[i];
       let hit = false;
@@ -1033,6 +1335,7 @@
       if (hit) playerBullets.splice(i,1);
     }
 
+    // enemy bullets vs player
     for (let i=enemyBullets.length-1;i>=0;i--) {
       const b = enemyBullets[i];
       if (rectCircleColliding(b, player)) {
@@ -1045,6 +1348,7 @@
       }
     }
 
+    // enemies vs player (va chạm thân)
     for (let i=enemies.length-1;i>=0;i--) {
       const e = enemies[i];
       const circ = { x:e.x, y:e.y, radius:Math.max(e.width,e.height)/2 };
@@ -1064,11 +1368,11 @@
 
   function onStageClear() {
     if (stage > progress.bestStage) { progress.bestStage = stage; saveProgress(); }
-    gameState = 'stageClear'; showStageClear();
+    showStageClear();
   }
   function onGameOver() {
     if (stage > progress.bestStage) { progress.bestStage = stage; saveProgress(); }
-    gameState = 'gameOver'; showGameOver();
+    showGameOver();
   }
 
   // ===== BACKGROUND: SKY SCROLL =====
@@ -1219,6 +1523,17 @@
     drawPlayer();
     drawEnemies();
     drawBullets();
+
+    // hiệu ứng flash khi bão lửa
+    if (firestormFlashTimer > 0) {
+      const alpha = Math.min(0.5, firestormFlashTimer / 0.25 * 0.5);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = 'rgba(255,80,0,1)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.restore();
+    }
+
     updateHud();
   }
 
@@ -1230,6 +1545,11 @@
     globalTime = ts/1000;
 
     updateStars(dt);
+
+    if (firestormFlashTimer > 0) {
+      firestormFlashTimer -= dt;
+      if (firestormFlashTimer < 0) firestormFlashTimer = 0;
+    }
 
     if (gameState === 'playing') {
       updatePlayer(dt);
@@ -1245,6 +1565,7 @@
   // ===== INIT =====
   resetPlayer();
   initStars();
+  updateFirestormHud();
   showMainMenu();
   requestAnimationFrame(loop);
 </script>
