@@ -164,7 +164,6 @@
       margin-top:4px;
     }
 
-    /* On–screen controls */
     .controls {
       position:absolute;
       inset-inline:8px;
@@ -200,6 +199,7 @@
       transform:scale(0.96);
     }
 
+    /* Ẩn control trên PC (chơi bằng bàn phím) */
     @media (min-width: 900px) {
       .controls { display:none; }
     }
@@ -235,10 +235,11 @@
 
   <div id="overlay" class="overlay"></div>
 
+  <!-- Mobile controls: chỉ giữ nút 🔥 (skill sau này) -->
   <div class="controls">
     <div class="btn-group">
-      <button class="ctrl-btn" id="btnLeft">◀</button>
-      <button class="ctrl-btn" id="btnRight">▶</button>
+      <button class="ctrl-btn" id="btnLeft" style="display:none;">◀</button>
+      <button class="ctrl-btn" id="btnRight" style="display:none;">▶</button>
     </div>
     <div class="btn-group">
       <button class="ctrl-btn" id="btnShoot">🔥</button>
@@ -260,8 +261,8 @@
   }
 
   // ===== CONSTANTS & CONFIG =====
-  const BACKEND = 'https://backend-yemh.onrender.com'; // backend Stars hiện tại
-  const STORAGE_KEY = 'survival_shooter_progress_v1';
+  const BACKEND = 'https://backend-yemh.onrender.com'; // backend Stars
+  const STORAGE_KEY = 'survival_shooter_progress_v2';
 
   const WEAPON_KEYS = ['pistol','rifle','shotgun','sniper'];
 
@@ -300,9 +301,7 @@
     }
   };
 
-  // Sản phẩm trong shop — giá có thể chỉnh tùy bạn
   const SHOP_PRODUCTS = {
-    // Unlock vũ khí
     unlock_rifle: {
       id: 'unlock_rifle',
       type: 'unlockWeapon',
@@ -327,12 +326,11 @@
       description: 'Sát thương cực cao, kết liễu boss nhanh.',
       priceStars: 50
     },
-    // Nâng cấp vũ khí (Lv 1 → 3)
     upgrade_pistol: {
       id: 'upgrade_pistol',
       type: 'upgradeWeapon',
       weaponKey: 'pistol',
-      basePrice: 15 // giá mỗi level = basePrice * level hiện tại
+      basePrice: 15
     },
     upgrade_rifle: {
       id: 'upgrade_rifle',
@@ -352,7 +350,6 @@
       weaponKey: 'sniper',
       basePrice: 25
     },
-    // Item máu / giáp
     heal_full: {
       id: 'heal_full',
       type: 'heal',
@@ -369,7 +366,7 @@
     }
   };
 
-  // ===== PROGRESS (lưu localStorage) =====
+  // ===== PROGRESS (localStorage) =====
   function loadProgress() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -402,7 +399,7 @@
       shotgun: 0,
       sniper: 0
     },
-    armorLevel: 0,   // mỗi level +20 max HP
+    armorLevel: 0,
     bestStage: 0
   };
 
@@ -425,20 +422,21 @@
   const btnShoot = document.getElementById('btnShoot');
 
   const keys = { left: false, right: false, shoot: false };
+  const AUTO_SHOOT = true;
 
   const BASE_ENEMY_HP = 30;
   const BASE_ENEMY_DMG = 8;
   const BASE_ENEMY_COUNT = 10;
   const ENEMY_PER_STAGE = 5;
 
-  let gameState = 'menu'; // 'menu' | 'playing' | 'stageClear' | 'gameOver'
+  let gameState = 'menu';
   let stage = 1;
 
   const player = {
     x: canvas.width / 2,
-    y: canvas.height - 70,
-    width: 40,
-    height: 40,
+    y: canvas.height - 90,
+    width: 60,
+    height: 80,
     speed: 260,
     hp: 100,
     maxHp: 100,
@@ -450,10 +448,99 @@
   let playerBullets = [];
   let enemyBullets = [];
 
+  // ===== SPRITES =====
+  const spritePlayer = new Image();
+  spritePlayer.src = 'player.png';
+  const spriteEnemy = new Image();
+  spriteEnemy.src = 'enemy_girl.png';
+  const spriteBoss = new Image();
+  spriteBoss.src = 'boss_girl.png';
+
+  function isSpriteReady(img) {
+    return img && img.complete && img.naturalWidth > 0;
+  }
+
+  // ===== AUDIO (Web Audio API, synth tự tạo) =====
+  let audioCtx = null;
+  let audioEnabled = true;
+
+  function ensureAudio() {
+    if (!audioEnabled) return;
+    if (!audioCtx) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        console.warn('AudioContext not available', e);
+        audioEnabled = false;
+      }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  function playTone(freq, duration, type, gainValue) {
+    if (!audioEnabled || !audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type || 'square';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    const now = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(gainValue || 0.2, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.start(now);
+    osc.stop(now + duration + 0.05);
+  }
+
+  function playShotSound() {
+    ensureAudio();
+    if (!audioCtx) return;
+    playTone(900, 0.08, 'square', 0.22);
+  }
+
+  function playHitSound() {
+    ensureAudio();
+    if (!audioCtx) return;
+    playTone(500, 0.05, 'sawtooth', 0.15);
+  }
+
+  function playExplosionSound() {
+    ensureAudio();
+    if (!audioCtx) return;
+    // noise burst
+    const bufferSize = audioCtx.sampleRate * 0.25;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const gain = audioCtx.createGain();
+    noise.connect(gain);
+    gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    noise.start(now);
+    noise.stop(now + 0.26);
+  }
+
+  function playClickSound() {
+    ensureAudio();
+    if (!audioCtx) return;
+    playTone(700, 0.04, 'triangle', 0.12);
+  }
+
+  // ===== UTIL =====
   function getWeaponStats(key) {
     const cfg = WEAPON_CONFIG[key];
     if (!cfg) return WEAPON_CONFIG.pistol.levels[0];
-
     const level = Math.max(1, progress.weaponLevels[key] || 1);
     const idx = Math.min(cfg.levels.length, level) - 1;
     return cfg.levels[idx];
@@ -467,7 +554,7 @@
 
   function resetPlayer() {
     player.x = canvas.width / 2;
-    player.y = canvas.height - 70;
+    player.y = canvas.height - 90;
     player.weaponKey = progress.unlockedWeapons.pistol ? 'pistol' : 'pistol';
     player.shotTimer = 0;
     player.maxHp = 100 + progress.armorLevel * 20;
@@ -488,8 +575,8 @@
       enemies.push({
         x: 30 + Math.random() * (canvas.width - 60),
         y: 60 + Math.random() * 180,
-        width: 26,
-        height: 26,
+        width: 60,
+        height: 80,
         color: '#4af0ff',
         hp: BASE_ENEMY_HP * hpMul,
         maxHp: BASE_ENEMY_HP * hpMul,
@@ -504,8 +591,8 @@
       enemies.push({
         x: canvas.width / 2,
         y: 80,
-        width: 60,
-        height: 60,
+        width: 76,
+        height: 96,
         color: '#ff9f43',
         hp: BASE_ENEMY_HP * hpMul * 6,
         maxHp: BASE_ENEMY_HP * hpMul * 6,
@@ -520,8 +607,8 @@
       enemies.push({
         x: canvas.width / 2,
         y: 90,
-        width: 80,
-        height: 80,
+        width: 90,
+        height: 110,
         color: '#ff4b5c',
         hp: BASE_ENEMY_HP * hpMul * 14,
         maxHp: BASE_ENEMY_HP * hpMul * 14,
@@ -536,6 +623,7 @@
   }
 
   function startGame() {
+    playClickSound();
     stage = 1;
     resetPlayer();
     createStage(stage);
@@ -544,6 +632,7 @@
   }
 
   function nextStage() {
+    playClickSound();
     stage += 1;
     if (stage > progress.bestStage) {
       progress.bestStage = stage;
@@ -555,16 +644,16 @@
     hideOverlay();
   }
 
-  // ====== OVERLAY SCREENS ======
+  // ===== OVERLAY SCREENS =====
   function showMainMenu() {
     gameState = 'menu';
     overlay.innerHTML = `
       <h1>🎮 Survival Shooter</h1>
-      <p>Di chuyển trái/phải và bắn hạ quái để vượt ải.<br/>
+      <p>Vuốt/ngón tay để di chuyển, auto-bắn hạ quái để vượt ải.<br/>
       Dùng <b>Stars Telegram</b> để mở khóa & nâng cấp vũ khí.</p>
       <p style="font-size:13px;opacity:0.9">
-        <b>Phím:</b> A / ←, D / →, Space bắn, Q đổi súng<br/>
-        Trên điện thoại: dùng các nút ở dưới.
+        <b>PC:</b> A/D di chuyển (auto bắn).<br/>
+        <b>Điện thoại:</b> Vuốt để di chuyển, nút 🔥 sẽ dùng làm skill sau này.
       </p>
       <button id="btnStartGame">Bắt đầu ải 1</button>
       <button id="btnOpenShopFromMenu" class="secondary">🛒 Mở Shop (Stars)</button>
@@ -572,8 +661,8 @@
     `;
     overlay.style.display = 'flex';
 
-    document.getElementById('btnStartGame').onclick = () => startGame();
-    document.getElementById('btnOpenShopFromMenu').onclick = () => showShop();
+    document.getElementById('btnStartGame').onclick = () => { ensureAudio(); startGame(); };
+    document.getElementById('btnOpenShopFromMenu').onclick = () => { ensureAudio(); showShop(); };
   }
 
   function showStageClear() {
@@ -586,8 +675,8 @@
     `;
     overlay.style.display = 'flex';
 
-    document.getElementById('btnNextStage').onclick = () => nextStage();
-    document.getElementById('btnOpenShopFromStage').onclick = () => showShop();
+    document.getElementById('btnNextStage').onclick = () => { ensureAudio(); nextStage(); };
+    document.getElementById('btnOpenShopFromStage').onclick = () => { ensureAudio(); showShop(); };
   }
 
   function showGameOver() {
@@ -600,8 +689,8 @@
     `;
     overlay.style.display = 'flex';
 
-    document.getElementById('btnRetry').onclick = () => startGame();
-    document.getElementById('btnOpenShopFromOver').onclick = () => showShop();
+    document.getElementById('btnRetry').onclick = () => { ensureAudio(); startGame(); };
+    document.getElementById('btnOpenShopFromOver').onclick = () => { ensureAudio(); showShop(); };
   }
 
   function hideOverlay() {
@@ -611,7 +700,7 @@
   // ===== SHOP UI =====
   function getUpgradePrice(product) {
     const lvl = progress.weaponLevels[product.weaponKey] || 1;
-    if (lvl >= 3) return null; // maxed
+    if (lvl >= 3) return null;
     return product.basePrice * lvl;
   }
 
@@ -655,7 +744,6 @@
       return true;
     }
     if (product.type === 'heal') {
-      // chỉ cho mua nếu đang trong game & HP chưa full
       if (gameState !== 'playing') return false;
       if (player.hp >= player.maxHp) return false;
       return true;
@@ -720,6 +808,7 @@
     overlay.style.display = 'flex';
 
     document.getElementById('btnBackFromShop').onclick = () => {
+      playClickSound();
       if (gameState === 'playing') {
         hideOverlay();
       } else if (gameState === 'gameOver') {
@@ -734,6 +823,8 @@
     document.querySelectorAll('.shop-item button[data-product-id]').forEach(btn => {
       btn.onclick = () => {
         const id = btn.getAttribute('data-product-id');
+        ensureAudio();
+        playClickSound();
         startPurchase(id);
       };
     });
@@ -815,7 +906,6 @@
     if (p.type === 'armor') {
       progress.armorLevel += 1;
       saveProgress();
-      // Áp dụng cho trận tiếp theo; trận hiện tại không đổi maxHp để tránh bug giữa chừng
       showShop('Đã tăng giáp vĩnh viễn. Từ trận sau bạn sẽ có nhiều HP hơn.');
       return;
     }
@@ -865,7 +955,6 @@
           try {
             const d = await deliverReward(payload);
             console.log('deliver reward (shop) =', d);
-            // dùng Stars thực ra đã thu; ở đây mình chỉ cấp item
           } catch (e) {
             console.warn('deliver error (shop)', e);
           }
@@ -886,16 +975,14 @@
     }
   }
 
-  btnOpenShopHud.addEventListener('click', () => showShop());
+  btnOpenShopHud.addEventListener('click', () => { ensureAudio(); playClickSound(); showShop(); });
 
-  // ===== INPUT =====
+  // ===== INPUT: keyboard (PC) =====
   window.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
     if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
-    if (e.code === 'Space') keys.shoot = true;
 
     if (e.code === 'KeyQ') {
-      // Đổi sang vũ khí tiếp theo đã unlock
       let idx = WEAPON_KEYS.indexOf(player.weaponKey);
       for (let i = 1; i <= WEAPON_KEYS.length; i++) {
         const nextKey = WEAPON_KEYS[(idx + i) % WEAPON_KEYS.length];
@@ -908,10 +995,13 @@
     }
 
     if (gameState === 'menu' && e.code === 'Enter') {
+      ensureAudio();
       startGame();
     } else if (gameState === 'stageClear' && e.code === 'Enter') {
+      ensureAudio();
       nextStage();
     } else if (gameState === 'gameOver' && e.code === 'Enter') {
+      ensureAudio();
       startGame();
     }
   });
@@ -919,9 +1009,34 @@
   window.addEventListener('keyup', (e) => {
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
     if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
-    if (e.code === 'Space') keys.shoot = false;
   });
 
+  // ===== TOUCH / POINTER: drag để di chuyển =====
+  let isDragging = false;
+
+  function pointerToCanvasX(ev) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
+    return x;
+  }
+
+  canvas.addEventListener('pointerdown', (ev) => {
+    ensureAudio();
+    isDragging = true;
+    const x = pointerToCanvasX(ev);
+    player.x = Math.max(player.width / 2 + 10, Math.min(canvas.width - player.width / 2 - 10, x));
+  });
+
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!isDragging) return;
+    const x = pointerToCanvasX(ev);
+    player.x = Math.max(player.width / 2 + 10, Math.min(canvas.width - player.width / 2 - 10, x));
+  });
+
+  canvas.addEventListener('pointerup', () => { isDragging = false; });
+  canvas.addEventListener('pointerleave', () => { isDragging = false; });
+
+  // Nút 🔥 hiện tại chỉ dùng test âm thanh / sau này thành skill
   function bindTouchHold(element, onChange) {
     const start = (ev) => { ev.preventDefault(); onChange(true); };
     const end = (ev) => { ev.preventDefault(); onChange(false); };
@@ -932,9 +1047,12 @@
     element.addEventListener('mouseup', end);
     element.addEventListener('mouseleave', end);
   }
-  bindTouchHold(btnLeft, (v) => keys.left = v);
-  bindTouchHold(btnRight, (v) => keys.right = v);
-  bindTouchHold(btnShoot, (v) => keys.shoot = v);
+  bindTouchHold(btnShoot, (v) => {
+    if (v) {
+      ensureAudio();
+      playExplosionSound(); // tạm thời cho nổ vui tai, sau này dùng làm skill
+    }
+  });
 
   // ===== GAME UPDATE =====
   function updatePlayer(dt) {
@@ -949,15 +1067,17 @@
       player.shotTimer -= dt;
     }
 
-    if (keys.shoot && player.shotTimer <= 0) {
+    const wantShoot = AUTO_SHOOT || keys.shoot;
+
+    if (wantShoot && player.shotTimer <= 0) {
       player.shotTimer = stats.cooldown;
 
-      const originY = player.y - player.height / 2;
+      const originY = player.y - player.height / 2 + 10;
       const originX = player.x;
       const pellets = stats.pellets || 1;
 
       for (let i = 0; i < pellets; i++) {
-        const spread = (pellets === 1) ? 0 : (i - (pellets - 1) / 2) * 20;
+        const spread = (pellets === 1) ? 0 : (i - (pellets - 1) / 2) * 18;
         playerBullets.push({
           x: originX + spread,
           y: originY,
@@ -966,6 +1086,7 @@
           damage: stats.damage
         });
       }
+      playShotSound();
     }
   }
 
@@ -990,7 +1111,7 @@
 
         enemyBullets.push({
           x: e.x,
-          y: e.y + e.height / 2,
+          y: e.y + e.height / 2 - 10,
           radius: 4,
           vy: 200 + (e.type === 'boss' ? 80 : 0),
           damage: e.damage
@@ -1033,7 +1154,11 @@
         if (rectCircleColliding(b, e)) {
           e.hp -= b.damage;
           hit = true;
-          if (e.hp <= 0) enemies.splice(j, 1);
+          playHitSound();
+          if (e.hp <= 0) {
+            enemies.splice(j, 1);
+            playExplosionSound();
+          }
           break;
         }
       }
@@ -1045,8 +1170,10 @@
       if (rectCircleColliding(b, player)) {
         enemyBullets.splice(i, 1);
         player.hp -= b.damage;
+        playHitSound();
         if (player.hp <= 0) {
           player.hp = 0;
+          playExplosionSound();
           onGameOver();
           return;
         }
@@ -1059,8 +1186,10 @@
       if (rectCircleColliding(circ, player)) {
         player.hp -= e.damage * 0.7;
         enemies.splice(i, 1);
+        playHitSound();
         if (player.hp <= 0) {
           player.hp = 0;
+          playExplosionSound();
           onGameOver();
           return;
         }
@@ -1108,30 +1237,46 @@
   }
 
   function drawPlayer() {
-    ctx.save();
-    ctx.translate(player.x, player.y);
-    ctx.fillStyle = '#66ff99';
-    ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
-    ctx.fillStyle = '#222';
-    ctx.fillRect(-8, -player.height / 2 - 4, 16, 8);
-    ctx.restore();
+    const w = player.width;
+    const h = player.height;
+    if (isSpriteReady(spritePlayer)) {
+      ctx.drawImage(spritePlayer, player.x - w / 2, player.y - h / 2, w, h);
+    } else {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.fillStyle = '#66ff99';
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
+  }
+
+  function spriteForEnemy(e) {
+    if (e.type === 'boss' || e.type === 'miniBoss') return spriteBoss;
+    return spriteEnemy;
   }
 
   function drawEnemies() {
     enemies.forEach(e => {
-      ctx.save();
-      ctx.translate(e.x, e.y);
-      ctx.fillStyle = e.color;
-      ctx.fillRect(-e.width / 2, -e.height / 2, e.width, e.height);
+      const w = e.width;
+      const h = e.height;
+      const sprite = spriteForEnemy(e);
+      if (isSpriteReady(sprite)) {
+        ctx.drawImage(sprite, e.x - w / 2, e.y - h / 2, w, h);
+      } else {
+        ctx.save();
+        ctx.translate(e.x, e.y);
+        ctx.fillStyle = e.color;
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+        ctx.restore();
+      }
 
-      const barW = e.width;
+      const barW = w;
       const barH = 4;
       const pct = e.hp / e.maxHp;
       ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.fillRect(-barW / 2, -e.height / 2 - 6, barW, barH);
+      ctx.fillRect(e.x - barW / 2, e.y - h / 2 - 6, barW, barH);
       ctx.fillStyle = '#3cf06f';
-      ctx.fillRect(-barW / 2, -e.height / 2 - 6, barW * pct, barH);
-      ctx.restore();
+      ctx.fillRect(e.x - barW / 2, e.y - h / 2 - 6, barW * pct, barH);
     });
   }
 
