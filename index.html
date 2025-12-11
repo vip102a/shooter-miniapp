@@ -387,8 +387,8 @@
   const BACKEND     = 'https://backend-yemh.onrender.com';
   const STORAGE_KEY = 'survival_shooter_progress_v5';
 
-  // ⚠️ DEV: FREE STARS SHOP
-  const DEV_FREE_STARS = true;
+  // Production: dùng Stars thật, KHÔNG free nữa
+const DEV_FREE_STARS = false;
 
   const AUTO_SHOOT = true;
   const WEAPON_KEYS = ['pistol','rifle','shotgun','sniper'];
@@ -806,8 +806,8 @@
     gameState = 'menu';
     shopReturnMode = 'menu';
     overlay.innerHTML = `
-      <h1>🎮 Survival Shooter (DEV)</h1>
-      <p>Shop đang ở chế độ test. Bạn có thể dùng Stars để mua Gold, rồi dùng Gold mua vật phẩm.</p>
+      <h1>🎮 Survival Shooter</h1>
+      <p>Dùng Telegram Stars để mua Gold, rồi dùng Gold mua vật phẩm.</p>
       <p style="font-size:13px;opacity:0.9">
         <b>PC:</b> A/D di chuyển, auto-bắn. Nhấn <b>Q</b> hoặc nút súng để đổi vũ khí.<br/>
         <b>Điện thoại:</b> Vuốt trên màn hình để di chuyển, ngón thứ 2 bấm súng / Bão lửa.
