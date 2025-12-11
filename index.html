@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8" />
-  <title>Survival Shooter — Stars + Gold Mini App (DEV)</title>
+  <title>Survival Shooter — Stars + Gold Mini App</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 
   <!-- Telegram Mini App SDK -->
@@ -37,7 +37,7 @@
       background:#020308;
     }
 
-    /* ===== HUD MỚI ===== */
+    /* ===== HUD ===== */
     .hud {
       position:absolute;
       top:8px;
@@ -54,6 +54,7 @@
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
+      gap:4px;
     }
     .hud-left, .hud-center, .hud-right {
       display:flex;
@@ -64,6 +65,16 @@
       display:flex;
       gap:6px;
       align-items:center;
+      flex-wrap:nowrap;
+    }
+    .hud-right-row {
+      justify-content:flex-end;
+    }
+    @media (max-width: 480px) {
+      .hud-right-row {
+        flex-wrap:wrap;
+        justify-content:flex-end;
+      }
     }
     .hud-bottom {
       display:flex;
@@ -84,6 +95,7 @@
     }
     .pill-label { opacity:0.7; }
 
+    /* HP bar */
     .hp-bar {
       width:80px;
       height:8px;
@@ -95,6 +107,44 @@
       height:100%;
       background:linear-gradient(90deg,#1be166,#9bff4f);
       width:100%;
+    }
+
+    /* Gold pill: 2 dòng */
+    .pill-gold {
+      flex-direction:column;
+      align-items:center;
+      min-width:64px;
+      padding-inline:10px;
+    }
+    .pill-gold .pill-label {
+      font-size:11px;
+    }
+    .pill-gold .pill-value {
+      font-size:13px;
+      font-weight:600;
+    }
+
+    /* Weapon pill gộp */
+    .pill-weapon {
+      flex-direction:column;
+      align-items:flex-start;
+      min-width:90px;
+      padding-inline:10px;
+      cursor:pointer;
+    }
+    .weapon-top {
+      display:flex;
+      align-items:center;
+      gap:4px;
+      font-size:12px;
+    }
+    .weapon-icon {
+      font-size:13px;
+    }
+    .weapon-bottom {
+      font-size:11px;
+      opacity:0.85;
+      margin-top:1px;
     }
 
     .overlay {
@@ -256,7 +306,7 @@
 <div class="game-wrapper">
   <canvas id="gameCanvas" width="400" height="700"></canvas>
 
-  <!-- HUD MỚI -->
+  <!-- HUD -->
   <div class="hud">
     <div class="hud-top">
       <!-- Trái: Stage -->
@@ -280,19 +330,25 @@
         </div>
       </div>
 
-      <!-- Phải: Gold + Tên súng + Đổi súng + Shop -->
+      <!-- Phải: Gold + Weapon + Shop -->
       <div class="hud-right">
-        <div class="hud-row">
-          <div class="pill">
+        <div class="hud-row hud-right-row">
+          <!-- Gold 2 dòng -->
+          <div class="pill pill-gold">
             <span class="pill-label">Gold</span>
-            <span id="hudGold">0</span>
+            <span class="pill-value" id="hudGold">0</span>
           </div>
-          <div class="pill" id="weaponPill">
-            <span id="hudWeapon">Pistol Lv.1</span>
-          </div>
-          <button class="pill" id="btnSwitchWeaponHud" style="font-size:11px;padding:4px 10px;">
-            🔁 Gun
+
+          <!-- Weapon: icon + name + Lv -->
+          <button class="pill pill-weapon" id="btnWeapon">
+            <div class="weapon-top">
+              <span class="weapon-icon">🔁</span>
+              <span id="hudWeaponName">Pistol</span>
+            </div>
+            <div class="weapon-bottom" id="hudWeaponLevel">Lv.1</div>
           </button>
+
+          <!-- Shop -->
           <button class="pill" id="btnOpenShopHud" style="font-size:11px;padding:4px 10px;">
             🛒 Shop
           </button>
@@ -300,7 +356,7 @@
       </div>
     </div>
 
-    <!-- Dưới: chỉ có mỗi Pause, nằm dưới cột Stage -->
+    <!-- Dưới: chỉ có Pause, dưới cột Stage -->
     <div class="hud-bottom">
       <button class="pill" id="btnPauseHud">⏸ Tạm dừng</button>
     </div>
@@ -308,6 +364,7 @@
 
   <div id="overlay" class="overlay"></div>
 
+  <!-- Bão lửa -->
   <div class="controls">
     <button class="ctrl-btn" id="btnShoot">
       🔥
@@ -528,17 +585,18 @@
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
 
-  const hudStage   = document.getElementById('hudStage');
-  const hpFill     = document.getElementById('hpFill');
-  const hudHpText  = document.getElementById('hudHpText');
-  const hudWeapon  = document.getElementById('hudWeapon');
-  const hudGold    = document.getElementById('hudGold');
-  const btnShopHud   = document.getElementById('btnOpenShopHud');
-  const btnSwitchHud = document.getElementById('btnSwitchWeaponHud');
-  const btnPauseHud  = document.getElementById('btnPauseHud');
-  const overlay    = document.getElementById('overlay');
-  const btnShoot   = document.getElementById('btnShoot');
-  const firestormLabel = document.getElementById('firestormCountLabel');
+  const hudStage      = document.getElementById('hudStage');
+  const hpFill        = document.getElementById('hpFill');
+  const hudHpText     = document.getElementById('hudHpText');
+  const hudWeaponName = document.getElementById('hudWeaponName');
+  const hudWeaponLevel= document.getElementById('hudWeaponLevel');
+  const hudGold       = document.getElementById('hudGold');
+  const btnShopHud    = document.getElementById('btnOpenShopHud');
+  const btnWeapon     = document.getElementById('btnWeapon');
+  const btnPauseHud   = document.getElementById('btnPauseHud');
+  const overlay       = document.getElementById('overlay');
+  const btnShoot      = document.getElementById('btnShoot');
+  const firestormLabel= document.getElementById('firestormCountLabel');
 
   const keys = { left: false, right: false, shoot: false };
 
@@ -641,7 +699,8 @@
   function updateHudWeapon() {
     const cfg = WEAPON_CONFIG[player.weaponKey];
     const lv  = progress.weaponLevels[player.weaponKey] || 1;
-    hudWeapon.textContent = cfg.displayName + ' Lv.' + lv;
+    hudWeaponName.textContent  = cfg.displayName;
+    hudWeaponLevel.textContent = 'Lv.' + lv;
   }
   function updateFirestormHud() {
     const c = progress.firestormCharges || 0;
@@ -750,8 +809,8 @@
       <h1>🎮 Survival Shooter (DEV)</h1>
       <p>Shop đang ở chế độ test. Bạn có thể dùng Stars để mua Gold, rồi dùng Gold mua vật phẩm.</p>
       <p style="font-size:13px;opacity:0.9">
-        <b>PC:</b> A/D di chuyển, auto-bắn. Nhấn <b>Q</b> hoặc 🔁 Gun để đổi súng.<br/>
-        <b>Điện thoại:</b> Vuốt trên màn hình để di chuyển, ngón thứ 2 bấm 🔁 Gun / 🔥 Bão lửa.
+        <b>PC:</b> A/D di chuyển, auto-bắn. Nhấn <b>Q</b> hoặc nút súng để đổi vũ khí.<br/>
+        <b>Điện thoại:</b> Vuốt trên màn hình để di chuyển, ngón thứ 2 bấm súng / Bão lửa.
       </p>
       <button id="btnStartGame">Bắt đầu ải 1</button>
       <button id="btnOpenShopFromMenu" class="secondary">🛒 Mở Shop</button>
@@ -989,7 +1048,6 @@
       return;
     }
     if (p.type === 'armor') {
-      // Giáp vĩnh viễn + áp dụng ngay
       progress.armorLevel += 1;
       player.maxHp = 100 + progress.armorLevel * 20;
       player.hp = Math.min(player.maxHp, player.hp + 20);
@@ -1121,7 +1179,7 @@
         const price = getItemPriceGold(upgradeId, 1);
         rows.push(renderItemRow(upgradeId, `${price} 🪙 (nâng lên Lv.${lvl+1})`, 1));
       } else {
-        // max -> ẩn luôn
+        // max -> ẩn
       }
     }
 
@@ -1288,7 +1346,7 @@
     updateHudWeapon();
   }
 
-  btnSwitchHud.addEventListener('click', () => {
+  btnWeapon.addEventListener('click', () => {
     ensureAudio();
     playClickSound();
     cycleWeapon();
