@@ -131,16 +131,16 @@
   </div>
 
   <div class="panel">
-    <div class="panel-title">💀 Game Over – Giọng nữ trêu nhẹ</div>
+    <div class="panel-title">💀 Game Over – Giọng nữ trêu cay hơn</div>
     <div class="btn-row">
-      <button id="btnGameOverVoice">😏 Game Over (chế nhẹ)</button>
+      <button id="btnGameOverVoice">😏 Game Over (chế mạnh)</button>
     </div>
   </div>
 
   <div class="panel">
     <div class="panel-title">💣 SFX thêm (để tham khảo)</div>
     <div class="btn-row">
-      <button id="btnShot">🔫 Tiếng súng</button>
+      <button id="btnShot">🔫 Tiếng súng (AK burst)</button>
       <button id="btnExplosion">💣 Tiếng nổ</button>
       <button id="btnHit">💢 Hit impact</button>
     </div>
@@ -160,7 +160,6 @@
 
   function initAudio() {
     if (audioCtx) {
-      // Resume nếu đang suspended
       if (audioCtx.state === 'suspended') audioCtx.resume();
       audioEnabled = true;
       return;
@@ -196,16 +195,32 @@
     });
   }
 
-  function playWithMaster(node, duration) {
+  // ====== Basic helpers (tone + noise + sweep) ======
+  function playNoise(duration, opts = {}) {
     if (!audioEnabled || !audioCtx || !masterGain) return;
-    node.connect(masterGain);
-    node.start();
-    if (duration) {
-      node.stop(audioCtx.currentTime + duration + 0.05);
+    const bufferSize = audioCtx.sampleRate * duration;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
     }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+
+    const gain = audioCtx.createGain();
+    const now = audioCtx.currentTime;
+    const vol = opts.volume != null ? opts.volume : 0.4;
+
+    src.connect(gain);
+    gain.connect(masterGain);
+
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    src.start(now);
+    src.stop(now + duration + 0.05);
   }
 
-  // ====== Basic tone helpers (không bản quyền) ======
   function playTone(freq, duration, opts = {}) {
     if (!audioEnabled || !audioCtx || !masterGain) return;
     const osc = audioCtx.createOscillator();
@@ -253,51 +268,20 @@
     osc.stop(now + duration + 0.05);
   }
 
-  function playNoise(duration, opts = {}) {
-    if (!audioEnabled || !audioCtx || !masterGain) return;
-    const bufferSize = audioCtx.sampleRate * duration;
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
-    }
-    const src = audioCtx.createBufferSource();
-    src.buffer = buffer;
-
-    const gain = audioCtx.createGain();
-    const now = audioCtx.currentTime;
-    const vol = opts.volume != null ? opts.volume : 0.4;
-
-    src.connect(gain);
-    gain.connect(masterGain);
-
-    gain.gain.setValueAtTime(vol, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-    src.start(now);
-    src.stop(now + duration + 0.05);
-  }
-
   // ====== PLAYER: HIT (giọng nam kiểu "uugh") ======
   function sfxPlayerHit() {
     if (!audioEnabled) initAudio();
     if (!audioEnabled) return;
-    const now = audioCtx.currentTime;
-
-    // Phần 1: sweep xuống – nghe như "uugh"
     playSweep(220, 120, 0.18, { type: 'triangle', volume: 0.45 });
-
-    // Phần 2: 1 nốt trầm ngắn ở cuối
     setTimeout(() => {
       playTone(90, 0.08, { type: 'sine', volume: 0.35 });
     }, 130);
   }
 
-  // ====== PLAYER: STAGE CLEAR (cười sảng khoái, synth) ======
+  // ====== PLAYER: STAGE CLEAR (cười sảng khoái synth) ======
   function sfxStageClearLaugh() {
     if (!audioEnabled) initAudio();
     if (!audioEnabled) return;
-
     const pattern = [
       { f: 380, d: 0.09 },
       { f: 520, d: 0.09 },
@@ -305,7 +289,6 @@
       { f: 580, d: 0.12 },
       { f: 720, d: 0.16 },
     ];
-
     let delay = 0;
     pattern.forEach((note) => {
       setTimeout(() => {
@@ -319,11 +302,7 @@
   function sfxEnemyDie() {
     if (!audioEnabled) initAudio();
     if (!audioEnabled) return;
-
-    // Sweep lên nhẹ, ngắn (cao → anime nữ), rồi tắt nhanh
     playSweep(650, 900, 0.12, { type: 'sawtooth', volume: 0.35 });
-
-    // Thêm chút noise nhỏ để có cảm giác "vỡ" khi chết
     setTimeout(() => {
       playNoise(0.08, { volume: 0.22 });
     }, 40);
@@ -333,19 +312,17 @@
   function sfxBossDie() {
     if (!audioEnabled) initAudio();
     if (!audioEnabled) return;
-    const now = audioCtx.currentTime;
 
-    // Phần 1: sweep lên (tiếng "á" bắt đầu)
+    // "Á" bật mạnh
     playSweep(620, 980, 0.22, { type: 'triangle', volume: 0.4 });
 
-    // Phần 2: rung nhẹ + hạ tông, tạo cảm giác "ngân"
+    // Ngân xuống
     setTimeout(() => {
       if (!audioCtx) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
 
-      // vibrato
       osc.frequency.setValueAtTime(700, audioCtx.currentTime);
       osc.frequency.linearRampToValueAtTime(480, audioCtx.currentTime + 0.35);
 
@@ -362,51 +339,78 @@
       osc.stop(t0 + 0.42);
     }, 180);
 
-    // Một chút noise cho hiệu ứng chết boss
     setTimeout(() => {
       playNoise(0.18, { volume: 0.26 });
     }, 130);
   }
 
-  // ====== GAME OVER (Nữ cười trêu nhẹ, không thô tục) ======
+  // ====== GAME OVER (Nữ cười dẹo, chế mạnh hơn để "cay") ======
   function sfxGameOverTease() {
     if (!audioEnabled) initAudio();
     if (!audioEnabled) return;
 
-    // Chuỗi "tee-hee" synth: cao, hơi lảnh, chơi 3 cụm
-    const laughs = [
-      { freqs: [720, 840], dur: 0.07 },
-      { freqs: [760, 880], dur: 0.08 },
-      { freqs: [820, 900], dur: 0.09 },
+    // 3 cụm cười "hee-hee-hee" tăng dần độ gắt
+    const groups = [
+      { freqs: [760, 840, 880], gap: 55 },
+      { freqs: [800, 880, 920], gap: 55 },
+      { freqs: [840, 920, 960], gap: 55 },
     ];
 
     let baseDelay = 0;
-    laughs.forEach(({ freqs, dur }) => {
-      freqs.forEach((f, idx) => {
+
+    groups.forEach((g) => {
+      g.freqs.forEach((f, idx) => {
         setTimeout(() => {
-          playTone(f, dur, { type: 'square', volume: 0.33 });
-        }, baseDelay + idx * (dur * 600));
+          // nốt vuông cao, lảnh – cảm giác "hee~"
+          playTone(f, 0.07, { type: 'square', volume: 0.34 });
+        }, baseDelay + idx * g.gap);
       });
-      baseDelay += dur * 700 + 40;
+
+      // Cuối cụm thêm 1 sweep ngắn đi lên (nhấn mạnh)
+      setTimeout(() => {
+        playSweep(
+          g.freqs[g.freqs.length - 1],
+          g.freqs[g.freqs.length - 1] + 140,
+          0.09,
+          { type: 'triangle', volume: 0.28 }
+        );
+      }, baseDelay + g.freqs.length * g.gap + 20);
+
+      baseDelay += g.freqs.length * g.gap + 140;
     });
 
-    // Kết thúc bằng 1 nốt lượn xuống (giống tiếng "hmmm~" trêu)
+    // Kết thúc bằng cú trượt dài từ cao xuống thấp (kiểu "hô hô hô~" rơi xuống)
     setTimeout(() => {
-      playSweep(600, 360, 0.22, { type: 'triangle', volume: 0.28 });
-    }, baseDelay + 60);
+      playSweep(780, 360, 0.42, {
+        type: 'sawtooth',
+        volume: 0.32
+      });
+    }, baseDelay + 80);
+
+    // Thêm 1 chấm noise cuối – như "tạt gáo nước"
+    setTimeout(() => {
+      playNoise(0.12, { volume: 0.22 });
+    }, baseDelay + 350);
   }
 
-  // ====== SFX THÊM: SHOT, EXPLOSION, HIT ======
+  // ====== SFX THÊM: SHOT (AK burst), EXPLOSION, HIT ======
+
+  // Tiếng súng AK-47 style: burst 4–5 viên, mỗi viên short noise + click cao
   function sfxShot() {
     if (!audioEnabled) initAudio();
     if (!audioEnabled) return;
-    playTone(900, 0.08, { type:'square', volume:0.35 });
-  }
 
-  function sfxHit() {
-    if (!audioEnabled) initAudio();
-    if (!audioEnabled) return;
-    playTone(500, 0.06, { type:'sawtooth', volume:0.3 });
+    const shots = 5;          // số viên trong 1 burst
+    const interval = 55;      // ms giữa mỗi viên
+
+    for (let i = 0; i < shots; i++) {
+      setTimeout(() => {
+        // tiếng nổ viên đạn (khá khô)
+        playNoise(0.045, { volume: 0.45 });
+        // click kim loại / nổ vỏ đạn – cao, cực ngắn
+        playTone(1800, 0.03, { type: 'square', volume: 0.33 });
+      }, i * interval);
+    }
   }
 
   function sfxExplosion() {
@@ -416,6 +420,12 @@
     setTimeout(() => {
       playSweep(220, 80, 0.25, { type:'triangle', volume:0.3 });
     }, 10);
+  }
+
+  function sfxHit() {
+    if (!audioEnabled) initAudio();
+    if (!audioEnabled) return;
+    playTone(500, 0.06, { type:'sawtooth', volume:0.3 });
   }
 
   // ====== DOM HOOK ======
@@ -433,13 +443,8 @@
   const btnExplosion        = document.getElementById('btnExplosion');
   const btnHit              = document.getElementById('btnHit');
 
-  btnInitAudio.addEventListener('click', () => {
-    initAudio();
-  });
-
-  btnStopAudio.addEventListener('click', () => {
-    stopAllAudio();
-  });
+  btnInitAudio.addEventListener('click', () => { initAudio(); });
+  btnStopAudio.addEventListener('click', () => { stopAllAudio(); });
 
   volumeSlider.addEventListener('input', () => {
     const v = parseInt(volumeSlider.value, 10) || 0;
