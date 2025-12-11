@@ -220,6 +220,10 @@
         <span class="pill-label">Weapon</span>
         <span id="hudWeapon">Pistol Lv.1</span>
       </div>
+      <!-- Nút đổi súng -->
+      <button class="pill" id="btnSwitchWeaponHud" style="font-size:11px;padding:4px 10px;">
+        🔁 Gun
+      </button>
       <button class="pill" id="btnOpenShopHud" style="font-size:11px;padding:4px 10px;">
         🛒 Shop
       </button>
@@ -387,6 +391,7 @@
   const hudHpText  = document.getElementById('hudHpText');
   const hudWeapon  = document.getElementById('hudWeapon');
   const btnShopHud = document.getElementById('btnOpenShopHud');
+  const btnSwitchHud = document.getElementById('btnSwitchWeaponHud');
   const overlay    = document.getElementById('overlay');
   const btnShoot   = document.getElementById('btnShoot');
 
@@ -584,8 +589,8 @@
       <p>Shop đang ở chế độ <b>DEV FREE</b> — mua không tốn Stars để test.<br/>
       Vuốt/ngón tay để di chuyển, auto-bắn hạ quái để vượt ải.</p>
       <p style="font-size:13px;opacity:0.9">
-        <b>PC:</b> A/D di chuyển (auto bắn). Nhấn <b>Q</b> để đổi súng.<br/>
-        <b>Điện thoại:</b> Vuốt để di chuyển.
+        <b>PC:</b> A/D di chuyển (auto bắn). Nhấn <b>Q</b> hoặc nút 🔁 Gun để đổi súng.<br/>
+        <b>Điện thoại:</b> Vuốt để di chuyển, bấm 🔁 Gun để đổi súng.
       </p>
       <button id="btnStartGame">Bắt đầu ải 1</button>
       <button id="btnOpenShopFromMenu" class="secondary">🛒 Mở Shop (DEV)</button>
@@ -836,18 +841,32 @@
 
   btnShopHud.addEventListener('click', () => { ensureAudio(); playClickSound(); showShop(); });
 
+  // ===== ĐỔI SÚNG CHUNG (PC + MOBILE) =====
+  function cycleWeapon() {
+    let idx = WEAPON_KEYS.indexOf(player.weaponKey);
+    for (let i = 1; i <= WEAPON_KEYS.length; i++) {
+      const nextKey = WEAPON_KEYS[(idx + i) % WEAPON_KEYS.length];
+      if (progress.unlockedWeapons[nextKey]) {
+        player.weaponKey = nextKey;
+        break;
+      }
+    }
+    updateHudWeapon();
+  }
+
+  btnSwitchHud.addEventListener('click', () => {
+    ensureAudio();
+    playClickSound();
+    cycleWeapon();
+  });
+
   // ===== INPUT: KEYBOARD (PC) =====
   window.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
     if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
 
     if (e.code === 'KeyQ') {
-      let idx = WEAPON_KEYS.indexOf(player.weaponKey);
-      for (let i=1;i<=WEAPON_KEYS.length;i++) {
-        const nextKey = WEAPON_KEYS[(idx+i)%WEAPON_KEYS.length];
-        if (progress.unlockedWeapons[nextKey]) { player.weaponKey = nextKey; break; }
-      }
-      updateHudWeapon();
+      cycleWeapon();
     }
     if (gameState==='menu' && e.code==='Enter') { ensureAudio(); startGame(); }
     else if (gameState==='stageClear' && e.code==='Enter') { ensureAudio(); nextStage(); }
