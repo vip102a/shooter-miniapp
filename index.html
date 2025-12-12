@@ -29,9 +29,9 @@
 
     .game-wrapper {
       position: fixed;
-      inset: 0;              /* top:0; right:0; bottom:0; left:0 */
+      inset: 0;
       width: 100%;
-      height: 100vh;         /* chiếm toàn bộ khung mini app */
+      height: 100vh;
       max-width: none;
       border-radius: 0;
       overflow: hidden;
@@ -394,6 +394,7 @@
   // ===== CONFIG =====
   const BACKEND     = 'https://backend-yemh.onrender.com';
   const STORAGE_KEY = 'survival_shooter_progress_v5';
+  const RUN_KEY     = 'survival_shooter_run_v9';  // lưu tiến trình ải đang chơi (số 9)
 
   // Production: dùng Stars thật
   const DEV_FREE_STARS = false;
@@ -428,7 +429,7 @@
       { damage: 9, cooldown: 0.46, bulletSpeed: 470, pellets: 3 },
       { damage: 11,cooldown: 0.42, bulletSpeed: 480, pellets: 4 },
     ];
-    // Sniper: 20 level, lẻ tăng dame, chẵn tăng tốc bắn
+    // Sniper: 20 level
     const levels = [];
     let dmg = 40;
     let cd  = 1.1;
@@ -458,28 +459,28 @@
       type: 'heal',
       title: 'Hồi 50 HP',
       description: 'Hồi 50 HP trong trận hiện tại (không vượt quá HP tối đa).',
-      priceGold: 20   // 2⭐ *10
+      priceGold: 20
     },
     armor_plus: {
       id: 'armor_plus',
       type: 'armor',
       title: 'Giáp vĩnh viễn +20 HP',
       description: 'Tăng HP tối đa (áp dụng ngay) cho tất cả trận sau này.',
-      priceGold: 120  // 12⭐
+      priceGold: 120
     },
     revive_continue: {
       id: 'revive_continue',
       type: 'revive',
       title: 'Chơi tiếp màn vừa thua',
       description: 'Hồi sinh trong ải vừa thua (mỗi ải tối đa 1 lần).',
-      priceGold: 100  // 10⭐
+      priceGold: 100
     },
     firestorm: {
       id: 'firestorm',
       type: 'firestorm',
       title: 'Bão lửa',
       description: 'Quét sạch đạn địch và đốt 10% máu mỗi quái. Có thể mua nhiều lần.',
-      priceGold: 40   // 4⭐ cho mỗi lần
+      priceGold: 40
     },
     unlock_rifle: {
       id: 'unlock_rifle',
@@ -531,7 +532,7 @@
     }
   };
 
-  // ===== STARS → GOLD PACKS =====
+  // ===== STARS → GOLD PACKS (1⭐ = 10 Gold) =====
   const STARS_GOLD_PACKS = [
     { id: 'pack_5',   stars: 5,   gold:  50 },
     { id: 'pack_10',  stars:10,   gold: 100 },
@@ -543,7 +544,7 @@
     { id: 'pack_1000',stars:1000, gold:10000 },
   ];
 
-  // ===== PROGRESS =====
+  // ===== PROGRESS (localStorage) =====
   function loadProgress() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -588,6 +589,28 @@
   }
   ensureProgressShape();
   saveProgress();
+
+  // ===== RUN STATE (số 9 – lưu ải đang chơi) =====
+  function loadRunState() {
+    try {
+      const raw = localStorage.getItem(RUN_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+  function saveRunState() {
+    try {
+      if (gameState === 'playing') {
+        const st = { stage };
+        localStorage.setItem(RUN_KEY, JSON.stringify(st));
+      }
+    } catch (e) {}
+  }
+  function clearRunState() {
+    try { localStorage.removeItem(RUN_KEY); } catch (e) {}
+  }
 
   // ===== GAME STATE =====
   const canvas = document.getElementById('gameCanvas');
@@ -730,11 +753,10 @@
     playTone(800, 0.05, 'triangle', 0.15);
   }
 
-  // Súng: dùng tiếng súng ban đầu, nhưng trầm hơn + bớt chói
+  // Súng: tiếng ban đầu nhưng trầm hơn, bớt chói
   function playShotSound() {
     ensureAudio();
     if (!audioCtx || !audioEnabled) return;
-    // tiếng "bụp" + một chút noise
     playNoise(0.04, 0.25);
     playTone(420, 0.06, 'square', 0.18);
   }
@@ -746,7 +768,7 @@
     playTone(500, 0.05, 'sawtooth', 0.18);
   }
 
-  // Nổ mạnh (dùng cho firestorm / boss chết phụ)
+  // Nổ mạnh (firestorm / boss chết phụ)
   function playExplosionSound() {
     ensureAudio();
     if (!audioCtx || !audioEnabled) return;
@@ -754,7 +776,7 @@
     playSweep(220, 80, 0.25, 'triangle', 0.28);
   }
 
-  // Player trúng đạn (giống file sound test: kiểu "ợ" nam)
+  // Player trúng đạn
   function sfxPlayerHit() {
     ensureAudio();
     if (!audioCtx || !audioEnabled) return;
@@ -768,7 +790,6 @@
   function sfxEnemyDieSmall() {
     ensureAudio();
     if (!audioCtx || !audioEnabled) return;
-    // chút "rên" + noise nhẹ
     playSweep(650, 900, 0.12, 'sawtooth', 0.32);
     setTimeout(() => playNoise(0.07, 0.2), 40);
   }
@@ -816,10 +837,11 @@
       g.freqs.forEach((f, idx) => {
         setTimeout(() => playTone(f, 0.07, 'square', 0.3), baseDelay + idx*g.gap);
       });
-      setTimeout(() => playSweep(g.freqs[g.freqs.length-1],
-                                 g.freqs[g.freqs.length-1] + 140,
-                                 0.09,'triangle',0.28),
-                 baseDelay + g.freqs.length*g.gap + 20);
+      setTimeout(() => playSweep(
+        g.freqs[g.freqs.length-1],
+        g.freqs[g.freqs.length-1] + 140,
+        0.09,'triangle',0.28
+      ), baseDelay + g.freqs.length*g.gap + 20);
       baseDelay += g.freqs.length*g.gap + 140;
     });
     setTimeout(() => playSweep(780, 360, 0.42, 'sawtooth', 0.3), baseDelay + 80);
@@ -929,6 +951,7 @@
     createStage(stage);
     gameState = 'playing';
     hideOverlay();
+    saveRunState(); // lưu ải đang chơi
   }
   function nextStage() {
     playClickSound();
@@ -938,6 +961,7 @@
     createStage(stage);
     gameState = 'playing';
     hideOverlay();
+    saveRunState();
   }
 
   // ===== OVERLAY =====
@@ -959,6 +983,41 @@
     document.getElementById('btnStartGame').onclick = () => { ensureAudio(); startGame(); };
     document.getElementById('btnOpenShopFromMenu').onclick = () => { ensureAudio(); showShop('items', null, 'menu'); };
   }
+
+  // SỐ 9: nếu có tiến trình đang chơi dở → hỏi tiếp tục hay chơi lại
+  function checkResumeOrMenu() {
+    const run = loadRunState();
+    if (run && typeof run.stage === 'number' && run.stage >= 1) {
+      const s = run.stage;
+      gameState = 'menu';
+      shopReturnMode = 'menu';
+      overlay.innerHTML = `
+        <h1>Tiếp tục ải ${s}?</h1>
+        <p>Bạn đang chơi dở ải <b>${s}</b>. Bạn muốn tiếp tục hay chơi lại từ đầu?</p>
+        <button id="btnResumeRun">Tiếp tục ải ${s}</button>
+        <button id="btnRestartRun" class="secondary">Chơi lại từ ải 1</button>
+      `;
+      overlay.style.display = 'flex';
+
+      document.getElementById('btnResumeRun').onclick = () => {
+        ensureAudio();
+        stage = s;
+        resetPlayer();
+        createStage(stage);
+        gameState = 'playing';
+        hideOverlay();
+        saveRunState();
+      };
+      document.getElementById('btnRestartRun').onclick = () => {
+        ensureAudio();
+        clearRunState();
+        showMainMenu();
+      };
+    } else {
+      showMainMenu();
+    }
+  }
+
   function showStageClear() {
     gameState = 'stageClear';
     shopReturnMode = 'stageClear';
@@ -1003,7 +1062,9 @@
       ensureAudio(); showShop('items', null, 'pause');
     };
     document.getElementById('btnPauseToMenu').onclick = () => {
-      ensureAudio(); playClickSound(); showMainMenu();
+      ensureAudio(); playClickSound();
+      clearRunState();
+      showMainMenu();
     };
   }
   function hideOverlay() { overlay.style.display = 'none'; }
@@ -1047,6 +1108,26 @@
     updateGoldHud();
   }
 
+  // 👉 Claim Gold từ Lucky Box (gửi trên server)
+  async function claimPendingGoldFromServer() {
+    try {
+      if (!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) return;
+      const userId = tg.initDataUnsafe.user.id;
+      const r = await fetch(BACKEND + '/api/claim-gold', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const j = await r.json();
+      if (j && j.ok && j.bonusGold > 0) {
+        applyGold(j.bonusGold);
+        alert('🎁 Bạn vừa nhận thêm +' + j.bonusGold + ' Gold từ Lucky Box!');
+      }
+    } catch (e) {
+      console.error('claim-gold error', e);
+    }
+  }
+
   async function buyGoldPack(packId) {
     const pack = STARS_GOLD_PACKS.find(p => p.id === packId);
     if (!pack) return;
@@ -1067,7 +1148,7 @@
 
     try {
       setShopStatus('Đang tạo hoá đơn Stars...', false);
-      const payload = 'gold-pack-'+packId+'-'+Date.now();
+      const payload = 'gold-pack-'+packId+'-'+Date.now(); // để webhook phân biệt với Lucky Box
       const j = await createStarsInvoice(stars, payload,
         `Mua ${gold} Gold`,
         `Gói ${stars}⭐ đổi thành ${gold} Gold trong game.`
@@ -1317,8 +1398,6 @@
       } else if (lvl < maxLv) {
         const price = getItemPriceGold(upgradeId, 1);
         rows.push(renderItemRow(upgradeId, `${price} 🪙 (nâng lên Lv.${lvl+1})`, 1));
-      } else {
-        // max -> ẩn
       }
     }
 
@@ -1577,14 +1656,13 @@
   function movePlayerToPointer(pos) {
     const minX = player.width/2+10;
     const maxX = canvas.width-player.width/2-10;
-    const minY = canvas.height*0.35;   // hạn chế lên quá cao
+    const minY = canvas.height*0.35;
     const maxY = canvas.height-60;
 
     const targetX = Math.max(minX, Math.min(maxX, pos.x));
     const targetY = Math.max(minY, Math.min(maxY, pos.y));
 
     const dx = targetX - player.x;
-    const dy = targetY - player.y;
     const dirX = Math.sign(dx);
     if (dirX !== 0) player.moveDir = dirX;
 
@@ -1799,6 +1877,7 @@
   }
   function onGameOver() {
     if (stage > progress.bestStage) { progress.bestStage = stage; saveProgress(); }
+    clearRunState();
     sfxGameOverTease();
     showGameOver();
   }
@@ -2033,6 +2112,7 @@
       updateEnemies(dt);
       updateBullets(dt);
       handleCollisions();
+      saveRunState(); // luôn cập nhật ải đang chơi
     }
 
     drawFrame(dt);
@@ -2044,8 +2124,12 @@
   initStars();
   updateFirestormHud();
   updateGoldHud();
-  showMainMenu();
   requestAnimationFrame(loop);
+
+// Khi load: 1) hỏi có tiếp tục ải dở không (số 9)
+//           2) claim Gold từ Lucky Box (nếu có)
+  checkResumeOrMenu();
+  claimPendingGoldFromServer();
 </script>
 
 </body>
