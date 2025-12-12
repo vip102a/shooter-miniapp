@@ -615,6 +615,18 @@
   // ===== GAME STATE =====
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+  // Tự chỉnh kích thước canvas theo khung game-wrapper
+  function resizeCanvasToScreen() {
+    const wrapper = document.querySelector('.game-wrapper');
+    const rect = wrapper.getBoundingClientRect();
+
+    // Dùng kích thước thực tế của khung
+    canvas.width  = rect.width;
+    canvas.height = rect.height;
+  }
+
+  window.addEventListener('resize', resizeCanvasToScreen);
+  window.addEventListener('orientationchange', resizeCanvasToScreen);
 
   const hudStage      = document.getElementById('hudStage');
   const hpFill        = document.getElementById('hpFill');
@@ -2120,6 +2132,10 @@
   }
 
   // ===== INIT =====
+  // Đầu tiên: fit canvas với màn hình hiện tại
+  resizeCanvasToScreen();
+
+  // Sau đó mới setup game dựa trên kích thước mới
   resetPlayer();
   initStars();
   updateFirestormHud();
